@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>DalleCraft</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="root-block">
+    <div class="header">
+        <span id="session-name" ondblclick="openSessionNameDialog()" style="user-select: none;">DalleCraft</span>
+        <nav>
+            <ul>
+                <li><button id="prev-button" onclick="prevSession()" class="tooltip">
+                    <i class="fa-solid fa-backward-step"></i><span class="tooltiptext">前のセッション</span></button>
+                </li>
+                <li><button id="next-button" onclick="nextSession()" class="tooltip">
+                    <i class="fa-solid fa-forward-step"></i><span class="tooltiptext">次のセッション</span></button>
+                </li>
+                <li><button id="new-button" onclick="newSession()" class="tooltip" style="width: 4rem;">
+                    <i class="fa-solid fa-plus"></i><span class="tooltiptext">新しいセッション</span></button>
+                </li>
+                <li style="width: 1.25rem;"></li>
+                <li><button id="delete-button" onclick="deleteSession()" class="tooltip">
+                    <i class="fa-regular fa-trash-can"></i><span class="tooltiptext">削除</span></button>
+                </li>
+                <li><button id="settings-button" onclick="config()" class="tooltip">
+                    <i class="fa-solid fa-gear"></i><span class="tooltiptext">設定</span></button>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    <div id="dalle-session" class="content-block">
+        <!-- ここにアイテムがが動的に追加される
+        <div class="prompt-image-card" id="card-1">
+            <div class="prompt">三毛猫</div>
+            <div class="image">
+                <img src="data:image/png;base64,..." />
+            </div>
+            <div class="actions">
+                <button class="card-delete-btn"><i class='fa-regular fa-trash-can'></i></button>
+            </div>
+        </div>
+        <div class="prompt-image-card" id="card-2">
+            <div class="prompt">芝犬</div>
+            <div class="image">
+                <img src="data:image/png;base64,..." />
+            </div>
+            <div class="actions">
+                <button class="card-delete-btn"><i class='fa-regular fa-trash-can'></i></button>
+            </div>
+        </div>
+        <div class="prompt-image-card" id="card-3">
+            <div class="prompt">ラーメン</div>
+            <div class="error">
+                エラー情報
+            </div>
+            <div class="actions">
+                <button class="card-delete-btn"><i class='fa-regular fa-trash-can'></i></button>
+            </div>
+        </div>
+        -->
+    </div>
+    <div class="prompt-area">
+        <textarea id="prompt" placeholder="プロンプトを入力..."></textarea>
+        <button id="submit-button" type="button" onclick="genImage()">画像生成</button>
+    </div>
+    <footer><span id="copyright">Copyright</span></footer>
+</div>
+<!-- 進捗モーダル -->
+<div id="progress-modal" class="modal-background">
+    <div class="modal-content">
+        <div class="loader"></div>
+        <p id="progress-modal-message"></p>
+    </div>
+</div>
+<!-- 画像表示モーダル -->
+<div id="image-modal" class="modal-background">
+    <span class="image-modal-close">&times;</span>
+    <img class="image-modal-content" id="image-modal-img">
+</div>
+<!-- 画像情報モーダル -->
+<div id="image-info-modal" class="modal-background">
+    <div class="info-modal-content">
+        <div class="info-modal-header">
+            <span id="image-info-modal-close-button" class="close">&times;</span>
+        </div>
+        <div class="info-modal-body">
+            <p class="image-info-modal-title">画像情報</p>
+            <table>
+                <tr><td>ファイル名</td><td><span id="image-info-filename"></span></td></tr>
+                <tr><td>APIタイプ</td><td><span id="image-info-api-type"></span></td></tr>
+                <tr><td>モデル名</td><td><span id="image-info-model-name"></span></td></tr>
+                <tr><td>解像度</td><td><span id="image-info-size"></span></td></tr>
+                <tr><td>画質</td><td><span id="image-info-quality"></span></td></tr>
+                <tr><td>生成にかかった時間</td><td><span id="image-info-elapsed-time"></span></td></tr>
+                <tr><td>プロンプト</td><td><div id="image-info-prompt"></div></td></tr>
+                <tr><td>改訂版プロンプト</td><td><div id="image-info-revised-prompt"></div></td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// DOM初期化
+document.addEventListener("DOMContentLoaded", function() {
+    document.addEventListener("contextmenu", handleContextMenu);
+
+    initImageModal();
+    initImageInfoModal();
+});
+
+// pywebview初期化
+window.addEventListener("pywebviewready", async function() {
+    await initComponents();
+    addWelcome();
+});
+
+// remをpxに変換
+function rem2px(rem) {
+    var rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    return rem * rootFontSize;
+}
+
+// 画像表示モーダル初期化
+function initImageModal() {
+    const modal = document.getElementById("image-modal");
+    const span = document.getElementsByClassName("image-modal-close")[0];
+    span.onclick = function() {
+        modal.style.display = "none";
+    };
+
+    window.onclick = function(event) {
+        if (event.target === modal) {
+            modal.style.display = "none";
+        }
+    };
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === "Escape" && modal.style.display === "block") {
+            modal.style.display = "none";
+        }
+    });
+}
+
+// 画像情報モーダル初期化
+function initImageInfoModal() {
+    const modal = document.getElementById("image-info-modal");
+    document.addEventListener('keydown', function(event) {
+        if (event.key === "Escape" && modal.style.display === "block") {
+            hideImageInfoModal();
+        }
+    });
+}
+
+// コンポーネント初期化
+async function initComponents() {
+    const info = await pywebview.api.api_get_app_info();
+    footer = document.getElementById("copyright");
+    if (footer) {
+        footer.textContent = info.copyright;
+    }
+}
+
+// Welcomeメッセージブロックを追加する
+async function addWelcome() {
+    const config = await pywebview.api.api_get_config();
+
+    // セッションコンテナを取得
+    const container = document.getElementById("dalle-session");
+
+    // Welcomeコンテナを作成
+    const welcomeConainer = document.createElement("div");
+    welcomeConainer.id = "welcome"
+    welcomeConainer.classList.add("welcome");
+    container.appendChild(welcomeConainer);
+
+    // Welcomeアイコンを作成
+    const imgElement = document.createElement("img");
+    imgElement.classList.add("welcome-chat-icon");
+    imgElement.src = "img/app.png";
+    welcomeConainer.appendChild(imgElement);
+
+    // Welcomeタイトルを作成
+    const welcomeTitle = document.createElement("div");
+    welcomeTitle.id = "welcome-title";
+    welcomeTitle.classList.add("welcome-title");
+    welcomeTitle.textContent = config.system.welcome_title;
+    welcomeConainer.appendChild(welcomeTitle);
+
+    // Welcomeメッセージを作成
+    const welcomeMessage = document.createElement("div");
+    welcomeMessage.id = "welcome-message";
+    welcomeMessage.classList.add("welcome-message");
+    welcomeMessage.textContent = config.system.welcome_message;
+    welcomeConainer.appendChild(welcomeMessage);
+}
+
+// コンテキストメニューイベントハンドラ
+function handleContextMenu(event) {
+    const target = event.target;
+
+    if (target.tagName !== "IMG") return;
+    const inModal = target.parentElement.id == "image-modal";
+
+    event.preventDefault();
+
+    // 既に表示されているメニューがあれば消す
+    const existingMenu = document.querySelector('.contextmenu');
+    if (existingMenu) {
+        document.body.removeChild(existingMenu);
+    }
+
+    let menuContent = "";
+    menuContent += `<button id="saveas"><i class="fa-regular fa-floppy-disk"></i>　名前を付けて保存</button><br>`;
+    if (!inModal) {
+        menuContent += `<button id="regenerate"><i class="fa-solid fa-repeat"></i>　同じプロンプトで再作成</button><br>`;
+        menuContent += `<button id="image-info"><i class="fa-solid fa-circle-info"></i>　画像情報を表示</button><br>`;
+        menuContent += `<button id="delete-card"><i class="fa-regular fa-trash-can"></i>　画像を削除</button><br>`;
+    }
+
+    const menu = document.createElement("div");
+    menu.className = "contextmenu";
+    menu.style.visibility = "hidden";
+    menu.innerHTML = menuContent;
+    document.body.appendChild(menu);
+    const menuWidth = menu.offsetWidth;
+    const menuHeight = menu.offsetHeight;
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    let xPos = event.pageX;
+    let yPos = event.pageY;
+    if (xPos + menuWidth > windowWidth) {
+        xPos = windowWidth - menuWidth - 10;
+    } 
+    if (yPos + menuHeight > windowHeight) {
+        yPos = windowHeight - menuHeight - 10;
+    }
+    menu.style.left = `${xPos}px`;
+    menu.style.top = `${yPos}px`;
+    menu.style.visibility = "visible";
+
+    // 名前を付けて保存
+    const saveasButton = document.getElementById("saveas");
+    if (saveasButton) {
+        saveasButton.addEventListener("click", function(clickEvent) {
+            document.body.removeChild(menu);
+            // 少しタイミングを遅らせないとメニューが消えない
+            setTimeout(function() {
+                saveImage(parseInt(target.dataset.entryId));
+            }, 100);
+        });
+    }
+
+    // 同じプロンプトで再作成
+    const regenerateButton = document.getElementById("regenerate");
+    if (regenerateButton) {
+        regenerateButton.addEventListener("click", function(clickEvent) {
+            document.body.removeChild(menu);
+            // 少しタイミングを遅らせないとメニューが消えない
+            setTimeout(function() {
+                const prompt = target.parentElement.previousElementSibling.innerText;
+                document.getElementById("prompt").value = prompt;
+                genImage();
+            }, 100);
+        });
+    }
+
+    // 画像情報を表示
+    const infoButton = document.getElementById("image-info");
+    if (infoButton) {
+        infoButton.addEventListener("click", function(clickEvent) {
+            document.body.removeChild(menu);
+            // 少しタイミングを遅らせないとメニューが消えない
+            setTimeout(function() {
+                showImageInfoModal(parseInt(target.dataset.entryId));
+            }, 100);
+        });
+    }   
+
+    // 画像を削除
+    const deleteButton = document.getElementById("delete-card");
+    if (deleteButton) {
+        deleteButton.addEventListener("click", function(clickEvent) {
+            document.body.removeChild(menu);
+            // 少しタイミングを遅らせないとメニューが消えない
+            setTimeout(function() {
+                deleteCard(parseInt(target.dataset.entryId));
+            }, 100);
+        });
+    }   
+
+    // どこかクリックされたらコンテキストメニューを消す
+    document.addEventListener("click", function() {
+        if (document.body.contains(menu)) {
+            document.body.removeChild(menu);
+        }
+    }, { once: true });
+}
+
+// DALLEで画像を生成する
+async function genImage() {
+    const prompt = document.getElementById("prompt").value.trim();
+    if (prompt === "") return;
+
+    showProgressModal("画像生成中...");
+
+    entry = await pywebview.api.api_gen_image(prompt);
+
+    addCard(entry.id, prompt);
+    if (entry.success) {
+        addImage(entry);
+    }
+    else {
+        addErrorInfo(entry.error_info);
+    }
+
+    scrollToBottom();
+
+    hideProgressModal();
+}
+
+// カードを追加する
+function addCard(id, prompt) {
+    // コンテナを取得
+    const container = document.getElementById("dalle-session");
+
+    // Welcomeメッセージが表示されていれば削除
+    const welcome = document.getElementById("welcome");
+    if (welcome) {
+        welcome.remove();
+    }
+
+    // 新しいカードを作成
+    const card = document.createElement("div");
+    card.classList.add("prompt-image-card");
+    card.id = `card-${id}`;
+
+    // プロンプトを表示する要素を作成
+    const promptElm = document.createElement("div");
+    promptElm.classList.add("prompt");
+    promptElm.innerHTML = escapeHtml(prompt);
+
+    // カードにプロンプト要素を追加
+    card.appendChild(promptElm);
+
+    // コンテナにカードを追加
+    container.appendChild(card);
+}
+
+// 最後のカードに画像を追加する
+function addImage(entry) {
+    // 最後のカードを取得
+    const lastCard = document.querySelector(".prompt-image-card:last-child");
+
+    // 新しい画像領域を作成
+    const imageDiv = document.createElement("div");
+    imageDiv.className = "image";
+
+    // 画像要素を作成
+    const img = document.createElement('img');
+    img.src = "data:image/png;base64," + entry.image_base64;
+    img.dataset.entryId = entry.id;
+    img.addEventListener("click", async function() {
+        const modal = document.getElementById("image-modal");
+        const modalImg = document.getElementById('image-modal-img');
+        modalImg.src = "data:image/png;base64," + await pywebview.api.api_get_image_base64(parseInt(this.dataset.entryId));
+        modalImg.dataset.entryId = this.dataset.entryId;
+        modal.style.display = "block";
+    });
+    // 画像領域に画像を追加
+    imageDiv.appendChild(img);
+
+    // カードに画像領域を追加
+    lastCard.appendChild(imageDiv);
+}
+
+// 最後のエラー情報を追加する
+function addErrorInfo(errorInfo) {
+    // 最後のカードを取得
+    const lastCard = document.querySelector(".prompt-image-card:last-child");
+
+    // 新しいエラー領域を作成
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error';
+    errorDiv.textContent = errorInfo + "　";
+
+    // 削除ボタンを追加
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'card-delete-btn';
+    deleteButton.innerHTML = '<i class="fa-regular fa-trash-can"></i>';
+    deleteButton.addEventListener("click", async function() {
+        deleteCard(parseInt(lastCard.id.split("-")[1]));
+    });
+    errorDiv.appendChild(deleteButton);
+
+    // カードにエラー領域を追加
+    lastCard.appendChild(errorDiv);
+}
+
+// セッションを削除する
+async function deleteSession() {
+    if (!confirm("このセッションを削除してもいいですか？（セッション内のすべての画像が削除されます）")) return;
+
+    await pywebview.api.api_delete_current_session();
+    addWelcome();
+}
+
+// カード削除ボタン イベントハンドラ
+async function deleteCard(cardId) {
+    if (!confirm("削除してもいいですか？")) return;
+
+    await pywebview.api.api_delete_entry(cardId);
+    const card = document.getElementById(`card-${cardId}`);
+    card.remove();
+}
+
+// 名前を付けて画像を保存する
+async function saveImage(cardId) {
+    await pywebview.api.api_save_image(cardId);
+}
+
+// 前のセッションを表示する
+function prevSession() {
+    pywebview.api.api_prev_session();
+}
+
+// 次のセッションを表示する
+function nextSession() {
+    pywebview.api.api_next_session();
+}
+
+// 新しいセッションを開始する
+async function newSession() {
+    await pywebview.api.api_new_session();
+    addWelcome();
+}
+
+// 設定画面を開く
+function config() {
+    pywebview.api.api_open_config();
+}
+
+// 下端までスクロールする
+function scrollToBottom() {
+    // 画像が読み込まれるのを待つために少し遅らせる
+    setTimeout(() => {
+        const container = document.getElementById("dalle-session");
+        container.scrollTop = container.scrollHeight;
+    }, 100);
+}
+
+// 文字列をHTML用にエスケープする
+function escapeHtml(text) {
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#x27;")
+        .replace(/\n/g, "<br>")
+        .replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;");
+}
+
+// 処理中モーダルを表示する
+function showProgressModal(message) {
+    const modal = document.getElementById("progress-modal");
+    const messageEl = document.getElementById("progress-modal-message");
+    messageEl.textContent = message;
+    modal.style.display = "block";
+}
+
+// 処理中モーダルを非表示にする
+function hideProgressModal() {
+    const modal = document.getElementById("progress-modal");
+    modal.style.display = "none";
+}
+
+// 画像情報モーダルを表示する
+async function showImageInfoModal(cardId) {
+    info = await pywebview.api.api_get_image_info(cardId);
+
+    const modal = document.getElementById("image-info-modal");
+    const closeButton = document.getElementById("image-info-modal-close-button");
+
+    if (modal && closeButton) {
+        const filename = document.getElementById("image-info-filename");
+        filename.textContent = info.image_filename;
+        const apiType = document.getElementById("image-info-api-type");
+        apiType.textContent = info.api_type;
+        const imageGenerationModel = document.getElementById("image-info-model-name");
+        imageGenerationModel.textContent = info.model_name;
+        const imageSize = document.getElementById("image-info-size");
+        imageSize.textContent = info.image_size;
+        const imageQuality = document.getElementById("image-info-quality");
+        imageQuality.textContent = info.image_quality;
+        const imageElapsedTime = document.getElementById("image-info-elapsed-time");
+        imageElapsedTime.textContent = info.elapsed_time.toFixed(2) + "秒";
+        const prompt = document.getElementById("image-info-prompt");
+        prompt.textContent = info.prompt;
+        const revisedPrompt = document.getElementById("image-info-revised-prompt");
+        revisedPrompt.textContent = info.revised_prompt;
+
+        closeButton.addEventListener("click", hideImageInfoModal, { once: true });
+        modal.style.display = "block";
+    }
+}
+
+// 画像情報モーダルを非表示にする
+function hideImageInfoModal() {
+    const modal = document.getElementById("image-info-modal");
+    if (modal) {
+        modal.style.display = "none";
+    }
+}
+
+// セッション名変更ダイアログを開く
+function openSessionNameDialog() {
+    const sessionName = document.getElementById("session-name");
+    const newName = prompt("セッション名を入力してください", sessionName.textContent);
+    if (newName) {
+        setSessionName(newName);
+        pywebview.api.api_set_session_name(newName);
+    }
+}
+
+//-----------------------------------------------------------------------------
+// Pythonから呼び出される関数
+//-----------------------------------------------------------------------------
+
+// セッションビューをクリアする
+function clearContents() {
+    const container = document.getElementById("dalle-session");
+    container.innerHTML = "";
+}
+
+// セッション名を設定する
+function setSessionName(name) {
+    const sessionName = document.getElementById("session-name");
+    if (sessionName) {
+        sessionName.textContent = name;
+    }
+}
+
+// セッションビューにエントリー（カード）を追加する
+function addEntry(entry) {
+    addCard(entry.id, entry.prompt);
+    if (entry.success) {
+        addImage(entry);
+    }
+    else {
+        addErrorInfo(entry.error_info);
+    }
+    scrollToBottom();
+}
+
+</script>
+</body>
+</html>
