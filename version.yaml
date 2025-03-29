@@ -1,0 +1,12 @@
+Version: 1.0.0
+CompanyName: led-mirage
+FileDescription: AI画像生成ツール（DALL-E3）
+InternalName: DalleCraft
+LegalCopyright: © 2025 led-mirage
+OriginalFilename: DalleCraft.exe
+ProductName: DalleCraft
+Translation:
+  - langID: 0
+    charsetID: 1200
+  - langID: 1041
+    charsetID: 1200

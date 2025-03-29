@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>DalleClient</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .setting-group {
+            margin: 10px 30px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+    
+        .form-group {
+            margin-bottom: 15px;
+        }
+    
+        .form-group > label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+    
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        h3 {
+            margin: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+<div class="root-block">
+    <div class="header">
+        <span id="title">設定</span>
+        <nav>
+            <ul>
+                <li><button id="cancel-button" onclick="cancel()">cancel</button></li>
+                <li><button id="submit-button" onclick="submit()">ok</button></li>
+            </ul>
+        </nav>
+    </div>
+    <div class="content-block">
+        <div class="category">
+            <h3 style="margin-top:0px;">API種別</h3>
+            <div class="setting-group">
+                <input type="radio" id="optionOpenAI" name="apiType" value="openai" checked>
+                <label for="optionOpenAI">OpenAI</label>
+                <input type="radio" id="optionAzure" name="apiType" value="azure">
+                <label for="optionAzure">Azure</label>
+            </div>
+        </div>
+        <div class="category" id="openai-setting" style="display: none;">
+            <h3>OpenAI用設定</h3>
+            <div class="setting-group">
+                <div class="form-group">
+                    <label for="openaiApiKey">APIキー用環境変数:</label>
+                    <input type="text" id="openaiApiKey" placeholder="APIキーを格納する環境変数名を入力">
+                </div>
+                <div class="form-group">
+                    <label for="openaiModelName">モデル名:</label>
+                    <input type="text" id="openaiModelName" placeholder="モデル名を入力">
+                </div>
+            </div>
+        </div>
+
+        <div class="category" id="azure-setting" style="display: none;">
+            <h3>Azure用設定</h3>
+            <div class="setting-group">
+                <div class="form-group">
+                    <label for="azureApiKey">APIキー用環境変数:</label>
+                    <input type="text" id="azureApiKey" placeholder="APIキーを格納する環境変数名を入力">
+                </div>
+                <div class="form-group">
+                    <label for="azureEndpoint">エンドポイント用環境変数:</label>
+                    <input type="text" id="azureEndpoint" placeholder="エンドポイントを格納する環境変数名を入力">
+                </div>
+                <div class="form-group">
+                    <label for="azureModelName">モデル名:</label>
+                    <input type="text" id="azureModelName" placeholder="モデル名を入力">
+                </div>
+            </div>
+        </div>
+        <div class="category">
+            <h3>モデル</h3>
+            <div class="setting-group">
+                <input type="radio" id="optionDalle2" name="modelType" value="dalle2">
+                <label for="optionDalle2">DALL-E2</label>
+                <input type="radio" id="optionDalle3" name="modelType" value="dalle3" checked>
+                <label for="optionDalle3">DALL-E3</label>
+            </div>
+        </div>
+        <div class="category" id="dalle2-size-setting" style="display: none;">
+            <h3>画像サイズ</h3>
+            <div class="setting-group">
+                <input type="radio" id="optionDalle2_256x256" name="dalle2_imageSize" value="256x256">
+                <label for="optionDalle2_256x256">256x256</label>
+                <input type="radio" id="optionDalle2_512x512" name="dalle2_imageSize" value="512x512">
+                <label for="optionDalle2_512x512">512x512</label>
+                <input type="radio" id="optionDalle2_1024x1024" name="dalle2_imageSize" value="1024x1024">
+                <label for="optionDalle2_1024x1024">1024x1024</label>
+            </div>
+        </div>
+        <div class="category" id="dalle3-size-setting" style="display: none;">
+            <h3>画像サイズ</h3>
+            <div class="setting-group">
+                <input type="radio" id="optionDalle3_1024x1024" name="dalle3_imageSize" value="1024x1024">
+                <label for="optionDalle3_1024x1024">1024x1024</label>
+                <input type="radio" id="optionDalle3_1792x1024" name="dalle3_imageSize" value="1792x1024">
+                <label for="optionDalle3_1792x1024">1792x1024</label>
+                <input type="radio" id="optionDalle3_1024x1792" name="dalle3_imageSize" value="1024x1792">
+                <label for="optionDalle3_1024x1792">1024x1792</label>
+            </div>
+        </div>
+        <div class="category" id="dalle3-quality-setting" style="display: none;">
+            <h3>画質</h3>
+            <div class="setting-group">
+                <input type="radio" id="optionDalle3_Standard" name="dalle3_imageQuality" value="standard">
+                <label for="optionDalle3_Standard">標準</label>
+                <input type="radio" id="optionDalle3_HD" name="dalle3_imageQuality" value="hd">
+                <label for="optionDalle3_HD">高画質</label>
+            </div>
+        </div>
+    </div>
+    <div style="height: 1em;"></div>
+    <footer><span id="copyright">Copyright</span></footer>
+</div>
+<script>
+window.addEventListener("DOMContentLoaded", async function() {
+    const apiTypeRadioButtons = document.querySelectorAll('input[name="apiType"]');
+    apiTypeRadioButtons.forEach(radio => {
+        radio.addEventListener('change', function(event) {
+            if (event.target.checked) {
+                const apiType = event.target.value;
+                if (apiType === "openai") {
+                    document.getElementById("openai-setting").style.display = "block";
+                    document.getElementById("azure-setting").style.display = "none";
+                } else {
+                    document.getElementById("openai-setting").style.display = "none";
+                    document.getElementById("azure-setting").style.display = "block";
+                }
+            }
+        });
+    });
+
+    const modelTypeRadioButtons = document.querySelectorAll('input[name="modelType"]');
+    modelTypeRadioButtons.forEach(radio => {
+        radio.addEventListener('change', function(event) {
+            if (event.target.checked) {
+                const modelType = event.target.value;
+                if (modelType === "dalle2") {
+                    document.getElementById("dalle2-size-setting").style.display = "block";
+                    document.getElementById("dalle3-size-setting").style.display = "none";
+                    document.getElementById("dalle3-quality-setting").style.display = "none";
+                } else {
+                    document.getElementById("dalle2-size-setting").style.display = "none";
+                    document.getElementById("dalle3-size-setting").style.display = "block";
+                    document.getElementById("dalle3-quality-setting").style.display = "block";
+                }
+
+                const apiType = document.querySelector('input[name="apiType"]:checked').value;
+                if (modelType === "dalle2") {
+                    document.getElementById("openaiModelName").value = "dall-e-2";
+                } else {
+                    document.getElementById("openaiModelName").value = "dall-e-3";
+                }
+            }
+        });
+    });
+});
+
+// pywebview初期化
+window.addEventListener("pywebviewready", async function() {
+    await initComponents();
+});
+
+// コンポーネント初期化
+async function initComponents() {
+    const info = await pywebview.api.api_get_app_info();
+    footer = document.getElementById("copyright");
+    if (footer) {
+        footer.textContent = info.copyright;
+    }
+
+    const config = await pywebview.api.api_get_config();
+    if (config.api_type === "openai") {
+        document.getElementById("optionOpenAI").checked = true;
+        document.getElementById("openai-setting").style.display = "block";
+    } else {
+        document.getElementById("optionAzure").checked = true;
+        document.getElementById("azure-setting").style.display = "block";
+    }
+    
+    document.getElementById("openaiApiKey").value = config.openai.api_key_envvar;
+    document.getElementById("openaiModelName").value = config.openai.model_name;
+    
+    document.getElementById("azureApiKey").value = config.azure.api_key_envvar;
+    document.getElementById("azureEndpoint").value = config.azure.endpoint_envvar;
+    document.getElementById("azureModelName").value = config.azure.model_name;
+
+    const modelType = config.model.model_type;
+    if (modelType === "dalle2") {
+        document.getElementById("optionDalle2").checked = true;
+        document.getElementById("dalle2-size-setting").style.display = "block";
+        document.getElementById("dalle3-size-setting").style.display = "none";
+        document.getElementById("dalle3-quality-setting").style.display = "none";
+    } else {
+        document.getElementById("optionDalle3").checked = true;
+        document.getElementById("dalle2-size-setting").style.display = "none";
+        document.getElementById("dalle3-size-setting").style.display = "block";
+        document.getElementById("dalle3-quality-setting").style.display = "block";
+    }
+
+    if (config.model.dalle2.size === "256x256") {
+        document.getElementById("optionDalle2_256x256").checked = true;
+    } else if (config.model.dalle2.size === "512x512") {
+        document.getElementById("optionDalle2_512x512").checked = true;
+    } else {
+        document.getElementById("optionDalle2_1024x1024").checked = true;
+    }
+
+    if (config.model.dalle3.size === "1024x1024") {
+        document.getElementById("optionDalle3_1024x1024").checked = true;
+    } else if (config.model.dalle3.size === "1792x1024") {
+        document.getElementById("optionDalle3_1792x1024").checked = true;
+    } else {
+        document.getElementById("optionDalle3_1024x1792").checked = true;
+    }
+
+    if (config.model.dalle3.quality === "standard") {
+        document.getElementById("optionDalle3_Standard").checked = true;
+    } else {
+        document.getElementById("optionDalle3_HD").checked = true;
+    }
+}
+
+// キャンセルボタン押下イベント
+function cancel() {
+    pywebview.api.api_cancel_config();
+}
+
+// OKボタン押下イベント
+function submit() {
+    const apiType = document.querySelector('input[name="apiType"]:checked').value;
+    const openaiApiKey = document.getElementById("openaiApiKey").value;
+    const openaiModelName = document.getElementById("openaiModelName").value;
+    const azureApiKey = document.getElementById("azureApiKey").value;
+    const azureEndpoint = document.getElementById("azureEndpoint").value;
+    const azureModelName = document.getElementById("azureModelName").value;
+    const config = {
+        apiType: apiType,
+        openai: {
+            api_key_envvar: openaiApiKey,
+            model_name: openaiModelName
+        },
+        azure: {
+            api_key_envvar: azureApiKey,
+            endpoint_envvar: azureEndpoint,
+            model_name: azureModelName
+        },
+        model: {
+            model_type: document.querySelector('input[name="modelType"]:checked').value,
+            dalle2: {
+                size: document.querySelector('input[name="dalle2_imageSize"]:checked').value
+            },
+            dalle3: {
+                size: document.querySelector('input[name="dalle3_imageSize"]:checked').value,
+                quality: document.querySelector('input[name="dalle3_imageQuality"]:checked').value
+            }
+        }
+    };
+    pywebview.api.api_submit_config(config);
+}
+</script>
+</body>
+</html>

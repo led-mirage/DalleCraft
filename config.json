@@ -1,0 +1,29 @@
+{
+    "version": "1.0",
+    "api_type": "openai",
+    "openai": {
+        "api_key_envvar": "OPENAI_API_KEY",
+        "model_name": "dall-e-3"
+    },
+    "azure": {
+        "api_key_envvar": "AZURE_OPENAI_API_KEY",
+        "endpoint_envvar": "AZURE_OPENAI_ENDPOINT",
+        "model_name": "dall-e-3"
+    },
+    "model": {
+        "model_type": "dalle3",
+        "dalle2": {
+            "size": "1024x1024"
+        },
+        "dalle3": {
+            "size": "1792x1024",
+            "quality": "standard"
+        }
+    },
+    "system": {
+        "window_width": 1024,
+        "window_height": 800,
+        "welcome_title": "Welcome",
+        "welcome_message": "DalleCraft is a tool for generating images using DALL-E3."
+    }
+}
