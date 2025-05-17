@@ -118,9 +118,9 @@ DALL-E3 API利用料金は[OpenAIの公式サイト](https://platform.openai.com
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/4237c7a7e13ab7b9f2c916fc2fd393fb58cb69679f611ba1a500b31821abc14f?nocache=1)で確認できます（2025/03/30 v1.0.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/cfc30092ff7be6b36bf9d5fbc4d1c6b54a3a459114c8bd1f52452cccb1dcb6e4?nocache=1)で確認できます（2025/05/17 v1.0.1）
 
-73個中4個のアンチウィルスエンジンで検出
+71個中4個のアンチウィルスエンジンで検出
 
 <div class="page"/>
 
@@ -152,7 +152,15 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 
 本アプリケーションは MITライセンス の下で公開しています。詳細については、プロジェクトに含まれる LICENSE ファイルをご参照ください。
 
+<div class="page"/>
+
 ## 💎 バージョン履歴
+
+### 1.0.1 (2025/05/17)
+
+- リファクタリングのみ（機能の追加、変更はありません）
+    - Applicationクラスのスリム化
+    - Serviceクラスの導入
 
 ### 1.0.0 (2025/03/30)
 

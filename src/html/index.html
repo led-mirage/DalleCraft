@@ -115,6 +115,7 @@ document.addEventListener("DOMContentLoaded", function() {
 window.addEventListener("pywebviewready", async function() {
     await initComponents();
     addWelcome();
+    pywebview.api.api_refresh_index_view();
 });
 
 // remをpxに変換
