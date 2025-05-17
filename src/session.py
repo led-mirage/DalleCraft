@@ -68,30 +68,30 @@ class Session:
     FILE_VERSION = "1.0"
 
     def __init__(self):
-        self.session_name = ""
-        self.entries = []
-        self.created_at = datetime.now()
-        self.saved_at = None
-        self.logfile_name = f"Session_{self.created_at.strftime('%Y%m%d_%H%M%S')}.json"
-        self.next_entry_id = 1
+        self.session_name: str = ""
+        self.entries: list[SessionEntry] = []
+        self.created_at: datetime = datetime.now()
+        self.saved_at: datetime = None
+        self.logfile_name: str = f"Session_{self.created_at.strftime('%Y%m%d_%H%M%S')}.json"
+        self.next_entry_id: int = 1
 
-    def find_entry(self, entry_id):
+    def find_entry(self, entry_id: int) -> SessionEntry | None:
         for entry in self.entries:
             if entry.id == entry_id:
                 return entry
         return None
 
-    def add_entry(self, entry):
+    def add_entry(self, entry: SessionEntry):
         entry.id = self.next_entry_id
         self.next_entry_id += 1
         self.entries.append(entry)
 
-    def remove_entry(self, entry_id):
+    def remove_entry(self, entry_id: int):
         entry = self.find_entry(entry_id)
         if entry is not None:
             self.entries.remove(entry)
 
-    def save_to_file(self):
+    def save_to_file(self) -> bool:
         self.saved_at = datetime.now()
         data = {
             "version": self.FILE_VERSION,
@@ -115,7 +115,7 @@ class Session:
             return False
 
     @classmethod
-    def load_from_file(cls, filename):
+    def load_from_file(cls, filename: str) -> "Session | None":
         try:
             path = os.path.join(LOG_DIR, filename)
             with open(path, 'r', encoding='utf-8') as f:
@@ -151,16 +151,16 @@ class Session:
 
 class SessionManager:
     def __init__(self):
-        self.current_session = None
+        self.current_session: Session = None
 
-    def create_new_session(self, name=None):
+    def create_new_session(self) -> Session:
         self.current_session = Session()
         return self.current_session
 
-    def get_current_session(self):
+    def get_current_session(self) -> Session:
         return self.current_session
 
-    def next_session(self):
+    def next_session(self) -> Session | None:
         logfiles = self.get_logfiles()
         if self.current_session.logfile_name in logfiles:
             index = logfiles.index(self.current_session.logfile_name)
@@ -173,7 +173,7 @@ class SessionManager:
         else:
             return None
 
-    def previous_session(self):
+    def previous_session(self) -> Session | None:
         logfiles = self.get_logfiles()
         if self.current_session.logfile_name in logfiles:
             index = logfiles.index(self.current_session.logfile_name)
@@ -191,7 +191,7 @@ class SessionManager:
             else:
                 return None
 
-    def delete_current_session(self):
+    def delete_current_session(self) -> Session:
         if self.current_session is not None:
             log_path = os.path.join(LOG_DIR, self.current_session.logfile_name)
             if os.path.exists(log_path):
