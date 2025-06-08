@@ -10,9 +10,13 @@ OpenAI API、Azure OpenAI Serviceに対応しています。
 
 手早く開始したい方は、[クイックスタートガイド](QuickStart.md)をご参照ください。
 
+<div class="page"/>
+
 ## 💎 スクリーンショット
 
-<img src="doc/screenshot_1.0.0.png" width="600">
+<img src="doc/screenshot_1.0.0.png" width="550"><br>
+
+<img src="doc/screenshot_1.1.0_settings.png" width="550"><br>
 
 <div class="page"/>
 
@@ -127,9 +131,9 @@ DALL-E3 API利用料金は[OpenAIの公式サイト](https://platform.openai.com
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/cfc30092ff7be6b36bf9d5fbc4d1c6b54a3a459114c8bd1f52452cccb1dcb6e4?nocache=1)で確認できます（2025/05/17 v1.0.1）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/1128074a92aff11c23abdb7c80fc9df367965c74b32d61f97a759806070afbb7?nocache=1)で確認できます（2025/06/08 v1.1.0）
 
-71個中4個のアンチウィルスエンジンで検出
+72個中3個のアンチウィルスエンジンで検出
 
 <div class="page"/>
 
@@ -151,7 +155,7 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 ホームページ：https://fontawesome.com/  
 ライセンス：Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License
 
-### 🔖 PyInstaller 6.12.0
+### 🔖 PyInstaller 6.14.0
 ホームページ： https://github.com/pyinstaller/pyinstaller  
 ライセンス： GPL 2.0 License / Apache License 2.0  
 
@@ -167,8 +171,9 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 
 ### 1.1.0 (2025/06/08)
 
-- GPT Image 1に対応
+- GPT Image 1モデルに対応
 - openaiライブラリのバージョンを1.84.0に更新
+- PyInstallerのバージョンを6.14.0に更新
 
 ### 1.0.1 (2025/05/17)
 

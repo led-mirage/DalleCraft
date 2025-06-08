@@ -1,5 +1,5 @@
 {
-    "version": "1.0",
+    "version": "2.0",
     "api_type": "openai",
     "openai": {
         "api_key_envvar": "OPENAI_API_KEY",
@@ -18,6 +18,10 @@
         "dalle3": {
             "size": "1792x1024",
             "quality": "standard"
+        },
+        "gptimage1": {
+            "size": "1536x1024",
+            "quality": "low"
         }
     },
     "system": {
