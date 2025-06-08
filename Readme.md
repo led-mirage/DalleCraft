@@ -1,10 +1,14 @@
 # <img src="assets/app.ico" width="48"> DalleCraft
 
+[![GitHub All Releases](https://img.shields.io/github/downloads/led-mirage/DalleCraft/total?color=blue)](https://github.com/led-mirage/DalleCraft/releases)
+[![GitHub release](https://img.shields.io/github/v/release/led-mirage/DalleCraft)](https://github.com/led-mirage/DalleCraft/releases)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Copyright (c) 2025 led-mirage
 
 ## 💎 概要
 
-DalleCraft（ダリ・クラフト）は、DALL-E3 APIを利用した画像生成アプリケーションです。
+DalleCraft（ダリ・クラフト）は、OpenAI 画像生成APIを利用した画像生成アプリケーションです。
 
 OpenAI API、Azure OpenAI Serviceに対応しています。
 
@@ -131,7 +135,7 @@ DALL-E3 API利用料金は[OpenAIの公式サイト](https://platform.openai.com
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/1128074a92aff11c23abdb7c80fc9df367965c74b32d61f97a759806070afbb7?nocache=1)で確認できます（2025/06/08 v1.1.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/f0dfcafad5fd15b876915e48663a8e091d7b842cee3f07bef2460ef52d34c678?nocache=1)で確認できます（2025/06/08 v1.1.1）
 
 72個中3個のアンチウィルスエンジンで検出
 
@@ -168,6 +172,10 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 <div class="page"/>
 
 ## 💎 バージョン履歴
+
+### 1.1.1 (2025/06/08)
+
+- Hotfix: Azure OpenAI Serviceでの画像生成ができないバグを修正
 
 ### 1.1.0 (2025/06/08)
 
