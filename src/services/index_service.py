@@ -42,6 +42,7 @@ class IndexService:
         if self.config.api_type == "openai":
             return DalleOpenAI(
                 api_key=os.environ[self.config.openai["api_key_envvar"]],
+                model_type=self.config.model["model_type"],
                 model=self.config.openai["model_name"]
             )
         else:
