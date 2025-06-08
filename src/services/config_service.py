@@ -36,5 +36,7 @@ class ConfigService:
         self.config.model["dalle2"]["size"] = config_dict["model"]["dalle2"]["size"]
         self.config.model["dalle3"]["size"] = config_dict["model"]["dalle3"]["size"]
         self.config.model["dalle3"]["quality"] = config_dict["model"]["dalle3"]["quality"]
+        self.config.model["gptimage1"]["size"] = config_dict["model"]["gptimage1"]["size"]
+        self.config.model["gptimage1"]["quality"] = config_dict["model"]["gptimage1"]["quality"]
         self.config.save(CONFIG_FILE)
         self.window.open_index_view()

@@ -33,6 +33,15 @@ OpenAI API、Azure OpenAI Serviceに対応しています。
 
 ※ DALL-E3を無料で楽しみたい方は、Microsoft CopilotやBing Image Creatorなどを使うと、無料で画像生成ができます。ただ、無料版だと解像度が1024x1024に固定されるなどの制約があるようです。詳しくはMicrosoftのサイトで確認してください。
 
+## 💎 ご協力のお願い
+
+バージョン1.1.0で`GPT Image 1`モデルの対応は実装済みですが、`Verify organization`未完了のため当方では実動作確認ができていません。
+
+もし認証済みのOpenAIアカウントをお持ちの方がいらっしゃいましたら、動作確認を試していただけると大変助かります。
+
+ご使用後、動作状況などをご報告いただけると幸いです🥺  
+（Issue や Discussion への投稿歓迎です！）
+
 ## 💎 事前準備
 
 ### APIキーの取得
@@ -130,7 +139,7 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 ホームページ： https://github.com/r0x0r/pywebview  
 ライセンス：  BSD-3-Clause license  
 
-### 🔖 openai 1.69.0
+### 🔖 openai 1.84.0
 ホームページ： https://github.com/openai/openai-python  
 ライセンス： Apache License 2.0  
 
@@ -155,6 +164,11 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 <div class="page"/>
 
 ## 💎 バージョン履歴
+
+### 1.1.0 (2025/06/08)
+
+- GPT Image 1に対応
+- openaiライブラリのバージョンを1.84.0に更新
 
 ### 1.0.1 (2025/05/17)
 

@@ -96,6 +96,8 @@
                 <label for="optionDalle2">DALL-E2</label>
                 <input type="radio" id="optionDalle3" name="modelType" value="dalle3" checked>
                 <label for="optionDalle3">DALL-E3</label>
+                <input type="radio" id="optionGPTImage1" name="modelType" value="gptimage1">
+                <label for="optionGPTImage1">GPT-Image-1</label>
             </div>
         </div>
         <div class="category" id="dalle2-size-setting" style="display: none;">
@@ -120,6 +122,19 @@
                 <label for="optionDalle3_1024x1792">1024x1792</label>
             </div>
         </div>
+        <div class="category" id="gptimage1-size-setting" style="display: none;">
+            <h3>画像サイズ</h3>
+            <div class="setting-group">
+                <input type="radio" id="optionGPTImage1_1024x1024" name="gptimage1_imageSize" value="1024x1024">
+                <label for="optionGPTImage1_1024x1024">1024x1024</label>
+                <input type="radio" id="optionGPTImage1_1536x1024" name="gptimage1_imageSize" value="1536x1024">
+                <label for="optionGPTImage1_1536x1024">1536x1024</label>
+                <input type="radio" id="optionGPTImage1_1024x1536" name="gptimage1_imageSize" value="1024x1536">
+                <label for="optionGPTImage1_1024x1536">1024x1536</label>
+                <input type="radio" id="optionGPTImage1_auto" name="gptimage1_imageSize" value="auto">
+                <label for="optionGPTImage1_auto">自動</label>
+            </div>
+        </div>
         <div class="category" id="dalle3-quality-setting" style="display: none;">
             <h3>画質</h3>
             <div class="setting-group">
@@ -127,6 +142,17 @@
                 <label for="optionDalle3_Standard">標準</label>
                 <input type="radio" id="optionDalle3_HD" name="dalle3_imageQuality" value="hd">
                 <label for="optionDalle3_HD">高画質</label>
+            </div>
+        </div>
+        <div class="category" id="gptimage1-quality-setting" style="display: none;">
+            <h3>画質</h3>
+            <div class="setting-group">
+                <input type="radio" id="optionGPTImage1_Low" name="gptimage1_imageQuality" value="low">
+                <label for="optionGPTImage1_Low">低画質</label>
+                <input type="radio" id="optionGPTImage1_Medium" name="gptimage1_imageQuality" value="medium">
+                <label for="optionGPTImage1_Medium">標準</label>
+                <input type="radio" id="optionGPTImage1_High" name="gptimage1_imageQuality" value="high">
+                <label for="optionGPTImage1_High">高画質</label>
             </div>
         </div>
     </div>
@@ -160,17 +186,29 @@ window.addEventListener("DOMContentLoaded", async function() {
                     document.getElementById("dalle2-size-setting").style.display = "block";
                     document.getElementById("dalle3-size-setting").style.display = "none";
                     document.getElementById("dalle3-quality-setting").style.display = "none";
-                } else {
+                    document.getElementById("gptimage1-size-setting").style.display = "none";
+                    document.getElementById("gptimage1-quality-setting").style.display = "none";
+                } else if (modelType === "dalle3") {
                     document.getElementById("dalle2-size-setting").style.display = "none";
                     document.getElementById("dalle3-size-setting").style.display = "block";
                     document.getElementById("dalle3-quality-setting").style.display = "block";
+                    document.getElementById("gptimage1-size-setting").style.display = "none";
+                    document.getElementById("gptimage1-quality-setting").style.display = "none";
+                } else {
+                    document.getElementById("dalle2-size-setting").style.display = "none";
+                    document.getElementById("dalle3-size-setting").style.display = "none";
+                    document.getElementById("dalle3-quality-setting").style.display = "none";
+                    document.getElementById("gptimage1-size-setting").style.display = "block";
+                    document.getElementById("gptimage1-quality-setting").style.display = "block";
                 }
 
                 const apiType = document.querySelector('input[name="apiType"]:checked').value;
                 if (modelType === "dalle2") {
                     document.getElementById("openaiModelName").value = "dall-e-2";
-                } else {
+                } else if (modelType === "dalle3") {
                     document.getElementById("openaiModelName").value = "dall-e-3";
+                } else {
+                    document.getElementById("openaiModelName").value = "gpt-image-1";
                 }
             }
         });
@@ -212,11 +250,22 @@ async function initComponents() {
         document.getElementById("dalle2-size-setting").style.display = "block";
         document.getElementById("dalle3-size-setting").style.display = "none";
         document.getElementById("dalle3-quality-setting").style.display = "none";
-    } else {
+        document.getElementById("gptimage1-size-setting").style.display = "none";
+        document.getElementById("gptimage1-quality-setting").style.display = "none";
+    } else if (modelType === "dalle3") {
         document.getElementById("optionDalle3").checked = true;
         document.getElementById("dalle2-size-setting").style.display = "none";
         document.getElementById("dalle3-size-setting").style.display = "block";
         document.getElementById("dalle3-quality-setting").style.display = "block";
+        document.getElementById("gptimage1-size-setting").style.display = "none";
+        document.getElementById("gptimage1-quality-setting").style.display = "none";
+    } else {
+        document.getElementById("optionGPTImage1").checked = true;
+        document.getElementById("dalle2-size-setting").style.display = "none";
+        document.getElementById("dalle3-size-setting").style.display = "none";
+        document.getElementById("dalle3-quality-setting").style.display = "none";
+        document.getElementById("gptimage1-size-setting").style.display = "block";
+        document.getElementById("gptimage1-quality-setting").style.display = "block";
     }
 
     if (config.model.dalle2.size === "256x256") {
@@ -239,6 +288,24 @@ async function initComponents() {
         document.getElementById("optionDalle3_Standard").checked = true;
     } else {
         document.getElementById("optionDalle3_HD").checked = true;
+    }
+
+    if (config.model.gptimage1.size === "1024x1024") {
+        document.getElementById("optionGPTImage1_1024x1024").checked = true;
+    } else if (config.model.gptimage1.size === "1536x1024") {
+        document.getElementById("optionGPTImage1_1536x1024").checked = true;
+    } else if (config.model.gptimage1.size === "1024x1536") {
+        document.getElementById("optionGPTImage1_1024x1536").checked = true;
+    } else {
+        document.getElementById("optionGPTImage1_auto").checked = true;
+    }
+
+    if (config.model.gptimage1.quality === "low") {
+        document.getElementById("optionGPTImage1_Low").checked = true;
+    } else if (config.model.gptimage1.quality === "medium") {
+        document.getElementById("optionGPTImage1_Medium").checked = true;
+    } else {
+        document.getElementById("optionGPTImage1_High").checked = true;
     }
 }
 
@@ -274,6 +341,10 @@ function submit() {
             dalle3: {
                 size: document.querySelector('input[name="dalle3_imageSize"]:checked').value,
                 quality: document.querySelector('input[name="dalle3_imageQuality"]:checked').value
+            },
+            gptimage1: {
+                size: document.querySelector('input[name="gptimage1_imageSize"]:checked').value,
+                quality: document.querySelector('input[name="gptimage1_imageQuality"]:checked').value
             }
         }
     };
