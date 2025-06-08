@@ -175,6 +175,7 @@ cython_debug/
 
 # My Settings
 version.txt
+readme.pdf
 logs/
 images/
 mydoc/

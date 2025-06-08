@@ -49,6 +49,7 @@ class IndexService:
             return DalleAzure(
                 api_key=os.environ[self.config.azure["api_key_envvar"]],
                 endpoint=os.environ[self.config.azure["endpoint_envvar"]],
+                model_type=self.config.model["model_type"],
                 model=self.config.azure["model_name"]
             )
 

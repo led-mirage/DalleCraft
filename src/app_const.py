@@ -5,7 +5,7 @@
 # ライセンスの詳細については、このプロジェクトのLICENSEファイルを参照してください。
 
 APP_NAME = "DalleCraft"
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 COPYRIGHT = "Copyright 2025 led-mirage"
 
 IMAGE_DIR = "images"
