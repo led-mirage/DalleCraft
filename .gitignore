@@ -176,6 +176,7 @@ cython_debug/
 # My Settings
 version.txt
 readme.pdf
+quickstart.pdf
 logs/
 images/
 mydoc/

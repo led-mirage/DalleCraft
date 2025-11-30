@@ -50,6 +50,8 @@ class Config:
             return self.model["dalle3"]["size"], self.model["dalle3"]["quality"]
         elif self.model["model_type"] == "dalle2":
             return self.model["dalle2"]["size"], "standard"
+        elif self.model["model_type"] == "gptimage1":
+            return self.model["gptimage1"]["size"], self.model["gptimage1"]["quality"]
         else:
             return None, None
 
