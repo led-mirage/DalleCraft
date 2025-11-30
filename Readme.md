@@ -126,7 +126,7 @@ DALL-E3 API利用料金は[OpenAIの公式サイト](https://platform.openai.com
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/97a28f92813173fafb434abf718b25d4de98ce29f4336c3ad7080f4e1c17aaca/detection)で確認できます（2025/11/27 v1.2.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/f5927779e9392ab5f9c5f5f41d7f3941ff5f72b064f4721af696242e7555d956/detection)で確認できます（2025/11/30 v1.2.0）
 
 72個中2個のアンチウィルスエンジンで検出
 
@@ -164,7 +164,7 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 
 ## 💎 バージョン履歴
 
-### 1.2.0 (2025/11/28)
+### 1.2.0 (2025/11/30)
 
 - Fix: GPT Image 1モデルのパラメータ取得部分に問題があったため修正
 - GPT Image 1モデルの動作確認を完了
