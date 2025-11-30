@@ -64,7 +64,7 @@ class DalleAzure:
         self.model_type = model_type
         self.model = model
         self.client = AzureOpenAI(
-            api_version="2024-02-01",
+            api_version="2024-10-21",
             api_key=api_key,
             azure_endpoint=endpoint
         )
