@@ -18,7 +18,7 @@ OpenAI API、Azure OpenAI Serviceに対応しています。
 
 ## 💎 スクリーンショット
 
-<img src="doc/screenshot_1.0.0.png" width="550"><br>
+<img src="doc/screenshot_1.2.0.png" width="550"><br>
 
 <img src="doc/screenshot_1.1.0_settings.png" width="550"><br>
 
@@ -40,15 +40,6 @@ OpenAI API、Azure OpenAI Serviceに対応しています。
 - APIの利用料金が発生します。※本アプリ自体は無料です。
 
 ※ DALL-E3を無料で楽しみたい方は、Microsoft CopilotやBing Image Creatorなどを使うと、無料で画像生成ができます。ただ、無料版だと解像度が1024x1024に固定されるなどの制約があるようです。詳しくはMicrosoftのサイトで確認してください。
-
-## 💎 ご協力のお願い
-
-バージョン1.1.0で`GPT Image 1`モデルの対応は実装済みですが、`Verify organization`未完了のため当方では実動作確認ができていません。
-
-もし認証済みのOpenAIアカウントをお持ちの方がいらっしゃいましたら、動作確認を試していただけると大変助かります。
-
-ご使用後、動作状況などをご報告いただけると幸いです🥺  
-（Issue や Discussion への投稿歓迎です！）
 
 ## 💎 事前準備
 
@@ -135,9 +126,9 @@ DALL-E3 API利用料金は[OpenAIの公式サイト](https://platform.openai.com
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/f0dfcafad5fd15b876915e48663a8e091d7b842cee3f07bef2460ef52d34c678?nocache=1)で確認できます（2025/06/08 v1.1.1）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/97a28f92813173fafb434abf718b25d4de98ce29f4336c3ad7080f4e1c17aaca/detection)で確認できます（2025/11/27 v1.2.0）
 
-72個中3個のアンチウィルスエンジンで検出
+72個中2個のアンチウィルスエンジンで検出
 
 <div class="page"/>
 
@@ -147,11 +138,11 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 ホームページ： https://github.com/r0x0r/pywebview  
 ライセンス：  BSD-3-Clause license  
 
-### 🔖 openai 1.84.0
+### 🔖 openai 2.8.1
 ホームページ： https://github.com/openai/openai-python  
 ライセンス： Apache License 2.0  
 
-### 🔖 pillow 11.1.0
+### 🔖 pillow 12.0.0
 ホームページ： https://github.com/python-pillow/Pillow  
 ライセンス： MIT-CMU License  
 
@@ -172,6 +163,13 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 <div class="page"/>
 
 ## 💎 バージョン履歴
+
+### 1.2.0 (2025/11/28)
+
+- Fix: GPT Image 1モデルのパラメータ取得部分に問題があったため修正
+- GPT Image 1モデルの動作確認を完了
+- openaiライブラリのバージョンを2.8.1に更新
+- pillowライブラリをバージョン12.0.0に更新
 
 ### 1.1.1 (2025/06/08)
 

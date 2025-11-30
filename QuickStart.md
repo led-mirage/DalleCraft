@@ -8,7 +8,7 @@ Copyright (c) 2025 led-mirage
 
 ## 💎 スクリーンショット
 
-<img src="doc/screenshot_1.0.0.png" width="600">
+<img src="doc/screenshot_1.2.0.png" width="600">
 
 <div class="page"/>
 
