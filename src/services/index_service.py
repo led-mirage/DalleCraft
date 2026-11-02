@@ -1,6 +1,6 @@
 # DalleCraft
 #
-# Copyright (c) 2025 led-mirage
+# Copyright (c) 2025-2026 led-mirage
 # このソースコードは MITライセンス の下でライセンスされています。
 # ライセンスの詳細については、このプロジェクトのLICENSEファイルを参照してください。
 
@@ -17,7 +17,7 @@ from PIL import Image
 from app_const import APP_NAME, IMAGE_DIR
 from app_window import AppWindow
 from config import Config
-from dalle import DalleAzure, DalleOpenAI
+from dalle import GPTImageClient
 from session import SessionManager, SessionEntry, Session
 from generation_logger import ImageGenerationLogger
 
@@ -30,28 +30,26 @@ class IndexService:
 
     def gen_image(self, prompt: str) -> tuple[str, str, float]:
         start_time = time.time()
-        dalle3 = self.create_dalle_client()
+        image_client = self.create_image_client()
 
         size, quality = self.config.get_model_param()
-        image_b64, revised_prompt = dalle3.gen_image(prompt, size=size, quality=quality)
+        image_b64, revised_prompt = image_client.gen_image(prompt, size=size, quality=quality)
 
         elapsed_time = time.time() - start_time
         return image_b64, revised_prompt, elapsed_time
 
-    def create_dalle_client(self) -> DalleOpenAI | DalleAzure:
+    def create_image_client(self) -> GPTImageClient:
+        model_name = self.config.get_model_name()
         if self.config.api_type == "openai":
-            return DalleOpenAI(
+            return GPTImageClient(
                 api_key=os.environ[self.config.openai["api_key_envvar"]],
-                model_type=self.config.model["model_type"],
-                model=self.config.openai["model_name"]
+                model=model_name,
             )
-        else:
-            return DalleAzure(
-                api_key=os.environ[self.config.azure["api_key_envvar"]],
-                endpoint=os.environ[self.config.azure["endpoint_envvar"]],
-                model_type=self.config.model["model_type"],
-                model=self.config.azure["model_name"]
-            )
+        return GPTImageClient(
+            api_key=os.environ[self.config.foundry["api_key_envvar"]],
+            base_url=os.environ[self.config.foundry["endpoint_envvar"]],
+            model=model_name,
+        )
 
     def save_image(self, image_b64: str) -> str:
         if not os.path.isdir(IMAGE_DIR):
@@ -84,7 +82,7 @@ class IndexService:
         if session:
             self.window.evaluate_js("clearContents()")
             session_name = session.session_name if session.session_name else APP_NAME
-            self.window.evaluate_js(f"setSessionName('{session_name}')")
+            self.window.evaluate_js(f"setSessionName({json.dumps(session_name)})")
             for entry in session.entries:
                 dict = entry.to_dict()
                 if entry.success:
@@ -111,7 +109,7 @@ class IndexService:
 
     def api_gen_image(self, prompt: str) -> dict:
         api_type = self.config.api_type
-        model_name = self.config.openai["model_name"] if api_type == "openai" else self.config.azure["model_name"]
+        model_name = self.config.get_model_name()
         try:
             image_b64, revised_prompt, elapsed_time = self.gen_image(prompt)
             image_path = self.save_image(image_b64)
@@ -129,7 +127,7 @@ class IndexService:
             return dict
         except openai.BadRequestError as e:
             image_size, image_quality = self.config.get_model_param()
-            entry = SessionEntry(prompt, "", api_type, model_name, image_size, image_quality, False, 0.0, "", "", e.message)
+            entry = SessionEntry(prompt, "", api_type, model_name, image_size, image_quality, False, 0.0, "", "", str(e))
             session = self.session_manager.get_current_session()
             session.add_entry(entry)
             session.save_to_file()

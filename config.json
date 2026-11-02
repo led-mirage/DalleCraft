@@ -1,33 +1,24 @@
 {
-    "version": "2.0",
+    "version": "3.0",
     "api_type": "openai",
     "openai": {
-        "api_key_envvar": "OPENAI_API_KEY",
-        "model_name": "dall-e-3"
+        "api_key_envvar": "OPENAI_API_KEY"
     },
-    "azure": {
+    "foundry": {
         "api_key_envvar": "AZURE_OPENAI_API_KEY",
         "endpoint_envvar": "AZURE_OPENAI_ENDPOINT",
-        "model_name": "dall-e-3"
+        "flare_deployment": "gpt-image-2.5-flare",
+        "sunburst_deployment": "gpt-image-2.5-sunburst"
     },
     "model": {
-        "model_type": "dalle3",
-        "dalle2": {
-            "size": "1024x1024"
-        },
-        "dalle3": {
-            "size": "1792x1024",
-            "quality": "standard"
-        },
-        "gptimage1": {
-            "size": "1536x1024",
-            "quality": "low"
-        }
+        "variant": "flare",
+        "size": "auto",
+        "quality": "auto"
     },
     "system": {
         "window_width": 1024,
         "window_height": 800,
         "welcome_title": "Welcome",
-        "welcome_message": "DalleCraft is a tool for generating images using DALL-E3."
+        "welcome_message": "DalleCraft is a tool for generating images using GPT Image 2.5."
     }
 }

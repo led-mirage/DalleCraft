@@ -1,6 +1,6 @@
 # <img src="assets/app.ico" width="48"> DalleCraft クイックスタートガイド
 
-Copyright (c) 2025 led-mirage
+Copyright (c) 2025-2026 led-mirage
 
 ## 💎 この資料について
 
@@ -8,7 +8,7 @@ Copyright (c) 2025 led-mirage
 
 ## 💎 スクリーンショット
 
-<img src="doc/screenshot_1.2.0.png" width="600">
+<img src="doc/screenshot_2.0.0.png" width="600">
 
 <div class="page"/>
 
@@ -31,8 +31,8 @@ Copyright (c) 2025 led-mirage
 
 DalleCraft.exeをダブルクリックして起動します。
 
-## 💎 DALL·E 3 APIの利用料金
+## 💎 GPT Image 2.5 APIの利用料金
 
-DALL·E 3 API利用料金は[OpenAIの公式サイト](https://platform.openai.com/docs/pricing#image-generation)でご確認ください。
+GPT Image API利用料金は[OpenAIの公式サイト](https://developers.openai.com/api/docs/pricing)でご確認ください。
 
-生成画像１枚毎に課金され、画像サイズ、品質によって料金が異なります。
+入力・画像出力トークン等に応じて課金され、モデル、画像サイズ、品質によって料金が異なります。
