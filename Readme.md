@@ -4,13 +4,13 @@
 [![GitHub release](https://img.shields.io/github/v/release/led-mirage/DalleCraft)](https://github.com/led-mirage/DalleCraft/releases)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Copyright (c) 2025 led-mirage
+Copyright (c) 2025-2026 led-mirage
 
 ## 💎 概要
 
-DalleCraft（ダリ・クラフト）は、OpenAI 画像生成APIを利用した画像生成アプリケーションです。
+DalleCraft（ダリ・クラフト）は、GPT Image 2.5を利用した画像生成アプリケーションです。
 
-OpenAI API、Azure OpenAI Serviceに対応しています。
+OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとGPT Image 2.5 Sunburstを切り替えて利用できます。
 
 手早く開始したい方は、[クイックスタートガイド](QuickStart.md)をご参照ください。
 
@@ -18,9 +18,8 @@ OpenAI API、Azure OpenAI Serviceに対応しています。
 
 ## 💎 スクリーンショット
 
-<img src="doc/screenshot_1.2.0.png" width="550"><br>
-
-<img src="doc/screenshot_1.1.0_settings.png" width="550"><br>
+<img src="doc/screenshot_2.0.0.png" width="550"><br>
+<img src="doc/screenshot_2.0.0_settings.png" width="550"><br>
 
 <div class="page"/>
 
@@ -39,8 +38,6 @@ OpenAI API、Azure OpenAI Serviceに対応しています。
 
 - APIの利用料金が発生します。※本アプリ自体は無料です。
 
-※ DALL-E3を無料で楽しみたい方は、Microsoft CopilotやBing Image Creatorなどを使うと、無料で画像生成ができます。ただ、無料版だと解像度が1024x1024に固定されるなどの制約があるようです。詳しくはMicrosoftのサイトで確認してください。
-
 ## 💎 事前準備
 
 ### APIキーの取得
@@ -49,22 +46,22 @@ OpenAI API、Azure OpenAI Serviceに対応しています。
 
 - [OpenAI Platform](https://platform.openai.com/docs/overview)に登録し、APIキーを発行してください。
 
-### 📌 Azure OpenAI Serviceを使用する場合
+### 📌 Microsoft Foundryを使用する場合
 
-- Azure OpenAI Serviceのリソースを作成し、APIキーとエンドポイントを取得してください。くわえて、dall-e-3モデルをAzure上でデプロイしてください。
-- 2025年3月現在、日本リージョンではdall-e-3モデルをデプロイできないようです。動作確認にはeastusリージョンを使用しました。
-- デプロイ可能なリージョンは[Microsoftの公式サイト](https://learn.microsoft.com/ja-jp/azure/ai-services/openai/concepts/models?tabs=standard%2Cstandard-chat-completions#models-by-deployment-type)でご確認ください。
+- Microsoft Foundryリソースを作成し、APIキーとOpenAI v1推論エンドポイントを取得してください。
+- `gpt-image-2.5-flare`または`gpt-image-2.5-sunburst`をデプロイしてください。両方を切り替える場合は、それぞれのデプロイが必要です。
+- デプロイ可能なリージョンは[Microsoftの公式サイト](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/models)でご確認ください。
 
 <div class="page"/>
 
 ## 💎 インストール
 
-## 📌 実行ファイル（DalleCraft.exe）を使う場合
+### 📌 実行ファイル（DalleCraft.exe）を使う場合
 
 1. このツールを配置するディレクトリを作成します。
 2. [Releasesページ](https://github.com/led-mirage/DalleCraft/releases)からZIPファイルをダウンロードして、作成したディレクトリに解凍します。
 
-## 📌 Pythonで実行する場合
+### 📌 Pythonで実行する場合
 
 1. プロジェクト用ディレクトリを作成し、移動します。
 2. GitHubからソースを取得します：
@@ -76,7 +73,7 @@ OpenAI API、Azure OpenAI Serviceに対応しています。
     python -m venv venv
     .\venv\scripts\activate
     ```
-4. 必要なライブラリの取得します：
+4. 必要なライブラリをインストールします：
     ```
     pip install -r requirements.txt
     ```
@@ -88,12 +85,12 @@ OpenAI API、Azure OpenAI Serviceに対応しています。
 - OSの環境変数にOPENAI_API_KEYを追加し、APIキーを設定してください。
 - 使用する環境変数名はアプリの設定画面から変更できます。
 
-### 📌 Azure OpenAI Serviceを使用する場合
+### 📌 Microsoft Foundryを使用する場合
 
 - OSの環境変数にAZURE_OPENAI_API_KEYを追加し、APIキーを設定してください。
-- OSの環境変数にAZURE_OPENAI_ENDPOINTを追加し、エンドポイントを設定してください。
+- OSの環境変数にAZURE_OPENAI_ENDPOINTを追加し、Foundryのデプロイ画面に表示されるOpenAI v1推論エンドポイントを設定してください。
 - 使用する環境変数名はアプリの設定画面から変更できます。
-- アプリの設定画面でデプロイしたモデル名を設定してください。
+- アプリの設定画面でFlareとSunburstのデプロイ名を設定してください。
 
 <div class="page"/>
 
@@ -110,15 +107,15 @@ DalleCraft.exeをダブルクリックして起動します。
 python src/main.py
 ```
 
-## 💎 DALL-E3 APIの利用料金
+## 💎 GPT Image 2.5 APIの利用料金
 
-DALL-E3 API利用料金は[OpenAIの公式サイト](https://platform.openai.com/docs/pricing#image-generation)でご確認ください。Azure OpenAI Serviceを利用する場合は、[Microsoftの公式サイト](https://azure.microsoft.com/en-us/pricing/details/cognitive-services/openai-service/)でご確認ください。
+GPT Image API利用料金は[OpenAIの公式サイト](https://developers.openai.com/api/docs/pricing)でご確認ください。Microsoft Foundryを利用する場合は、[Microsoftの公式サイト](https://azure.microsoft.com/pricing/details/ai-foundry/)でご確認ください。
 
-生成画像１枚毎に課金され、画像サイズ、品質によって料金が異なります。
+入力・画像出力トークン等に応じて課金され、モデル、画像サイズ、品質によって料金が異なります。
 
 ## 💎 注意事項
 
-## ウィルス対策ソフトの誤認問題
+### ウィルス対策ソフトの誤認問題
 
 このプログラムの実行ファイル（DalleCraft.exe）はウィルス対策ソフトにマルウェアと誤認されることがあります。
 
@@ -126,7 +123,7 @@ DALL-E3 API利用料金は[OpenAIの公式サイト](https://platform.openai.com
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/f5927779e9392ab5f9c5f5f41d7f3941ff5f72b064f4721af696242e7555d956/detection)で確認できます（2025/11/30 v1.2.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/a4c1b3cf1a7b2f502bc57ae207db8334e8d8b35ad8f75af9cdde74c60cd98c1f/detection)で確認できます（2026/11/03 v2.0.0）
 
 72個中2個のアンチウィルスエンジンで検出
 
@@ -138,11 +135,11 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 ホームページ： https://github.com/r0x0r/pywebview  
 ライセンス：  BSD-3-Clause license  
 
-### 🔖 openai 2.8.1
+### 🔖 openai 3.42.1
 ホームページ： https://github.com/openai/openai-python  
 ライセンス： Apache License 2.0  
 
-### 🔖 pillow 12.0.0
+### 🔖 pillow 13.0.0
 ホームページ： https://github.com/python-pillow/Pillow  
 ライセンス： MIT-CMU License  
 
@@ -150,19 +147,40 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 ホームページ：https://fontawesome.com/  
 ライセンス：Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License
 
-### 🔖 PyInstaller 6.14.0
+## 💎 使用しているライブラリ（ビルド時）
+
+### 🔖 PyInstaller 6.22.3
 ホームページ： https://github.com/pyinstaller/pyinstaller  
 ライセンス： GPL 2.0 License / Apache License 2.0  
 
+### 🔖 pyinstaller-versionfile 3.1.0
+ホームページ： https://github.com/pyinstaller/pyinstaller-versionfile<br>
+ライセンス： MIT License
+
+### 🔖 PyYAML 6.0.3
+ホームページ： https://github.com/yaml/pyyaml<br>
+ライセンス： MIT License
+
 ## 💎 ライセンス
 
-© 2025 led-mirage
+© 2025-2026 led-mirage
 
 本アプリケーションは MITライセンス の下で公開しています。詳細については、プロジェクトに含まれる LICENSE ファイルをご参照ください。
 
 <div class="page"/>
 
 ## 💎 バージョン履歴
+
+### 2.0.0 (2026/11/03)
+
+- GPT Image 2.5 Flare、GPT Image 2.5 Sunburstに対応
+- Microsoft FoundryのOpenAI v1エンドポイントに対応
+- DALL-E 2、DALL-E 3、GPT Image 1の生成サポートを終了
+- 画像サイズの自動選択と`xhigh`、`max`画質に対応
+- Pythonのバージョンを3.14.10に更新
+- openaiライブラリのバージョンを3.42.1に更新
+- Pillowライブラリのバージョンを13.0.0に更新
+- PyInstallerのバージョンを6.22.3に更新
 
 ### 1.2.0 (2025/11/30)
 

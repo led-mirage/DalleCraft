@@ -1,6 +1,6 @@
 # DalleCraft
 #
-# Copyright (c) 2025 led-mirage
+# Copyright (c) 2025-2026 led-mirage
 # このソースコードは MITライセンス の下でライセンスされています。
 # ライセンスの詳細については、このプロジェクトのLICENSEファイルを参照してください。
 
@@ -28,15 +28,12 @@ class ConfigService:
     def api_submit_config(self, config_dict: dict):
         self.config.api_type = config_dict["apiType"]
         self.config.openai["api_key_envvar"] = config_dict["openai"]["api_key_envvar"]
-        self.config.openai["model_name"] = config_dict["openai"]["model_name"]
-        self.config.azure["api_key_envvar"] = config_dict["azure"]["api_key_envvar"]
-        self.config.azure["endpoint_envvar"] = config_dict["azure"]["endpoint_envvar"]
-        self.config.azure["model_name"] = config_dict["azure"]["model_name"]
-        self.config.model["model_type"] = config_dict["model"]["model_type"]
-        self.config.model["dalle2"]["size"] = config_dict["model"]["dalle2"]["size"]
-        self.config.model["dalle3"]["size"] = config_dict["model"]["dalle3"]["size"]
-        self.config.model["dalle3"]["quality"] = config_dict["model"]["dalle3"]["quality"]
-        self.config.model["gptimage1"]["size"] = config_dict["model"]["gptimage1"]["size"]
-        self.config.model["gptimage1"]["quality"] = config_dict["model"]["gptimage1"]["quality"]
+        self.config.foundry["api_key_envvar"] = config_dict["foundry"]["api_key_envvar"]
+        self.config.foundry["endpoint_envvar"] = config_dict["foundry"]["endpoint_envvar"]
+        self.config.foundry["flare_deployment"] = config_dict["foundry"]["flare_deployment"]
+        self.config.foundry["sunburst_deployment"] = config_dict["foundry"]["sunburst_deployment"]
+        self.config.model["variant"] = config_dict["model"]["variant"]
+        self.config.model["size"] = config_dict["model"]["size"]
+        self.config.model["quality"] = config_dict["model"]["quality"]
         self.config.save(CONFIG_FILE)
         self.window.open_index_view()

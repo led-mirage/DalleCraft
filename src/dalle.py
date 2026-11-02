@@ -1,90 +1,74 @@
 # DalleCraft
 #
-# Copyright (c) 2025 led-mirage
+# Copyright (c) 2025-2026 led-mirage
 # このソースコードは MITライセンス の下でライセンスされています。
 # ライセンスの詳細については、このプロジェクトのLICENSEファイルを参照してください。
 
 from openai import OpenAI
-from openai import AzureOpenAI
 
-MODEL_TYPE_DALLE2 = "dalle2"
-MODEL_TYPE_DALLE3 = "dalle3"
-MODEL_TYPE_GPTIMAGE1 = "gptimage1"
+MODEL_VARIANT_FLARE = "flare"
+MODEL_VARIANT_SUNBURST = "sunburst"
 
-DALLE2_IMAGE_SIZE1 = "256x256"
-DALLE2_IMAGE_SIZE2 = "512x512"
-DALLE2_IMAGE_SIZE3 = "1024x1024"
+MODEL_NAME_FLARE = "gpt-image-2.5-flare"
+MODEL_NAME_SUNBURST = "gpt-image-2.5-sunburst"
 
-DALLE3_IMAGE_SIZE1 = "1024x1024"
-DALLE3_IMAGE_SIZE2 = "1792x1024"
-DALLE3_IMAGE_SIZE3 = "1024x1792"
+IMAGE_SIZE_SQUARE = "1024x1024"
+IMAGE_SIZE_LANDSCAPE = "1536x1024"
+IMAGE_SIZE_PORTRAIT = "1024x1536"
+IMAGE_SIZE_AUTO = "auto"
 
-DALLE3_QUALITY_STANDARD = "standard"
-DALLE3_QUALITY_HD = "hd"
-
-GPTIMAGE1_IMAGE_SIZE1 = "1024x1024"
-GPTIMAGE1_IMAGE_SIZE2 = "1536x1024"
-GPTIMAGE1_IMAGE_SIZE3 = "1024x1536"
-GPTIMAGE1_IMAGE_SIZE4 = "auto"
-
-GPTIMAGE1_QUALITY_LOW = "low"
-GPTIMAGE1_QUALITY_MEDIUM = "medium"
-GPTIMAGE1_QUALITY_HIGH = "high"
+IMAGE_QUALITY_LOW = "low"
+IMAGE_QUALITY_MEDIUM = "medium"
+IMAGE_QUALITY_HIGH = "high"
+IMAGE_QUALITY_XHIGH = "xhigh"
+IMAGE_QUALITY_MAX = "max"
+IMAGE_QUALITY_AUTO = "auto"
 
 
-class DalleOpenAI:
-    def __init__(self, api_key: str, model_type: str, model: str):
-        self.model_type = model_type
+def get_openai_model_name(variant: str) -> str:
+    if variant == MODEL_VARIANT_SUNBURST:
+        return MODEL_NAME_SUNBURST
+    return MODEL_NAME_FLARE
+
+
+def normalize_foundry_endpoint(endpoint: str) -> str:
+    """Return a base URL suitable for the standard OpenAI client."""
+    normalized = endpoint.strip().rstrip("/")
+    if not normalized:
+        raise ValueError("Microsoft Foundryのエンドポイントが設定されていません。")
+    if not normalized.endswith("/openai/v1"):
+        normalized = f"{normalized}/openai/v1"
+    return f"{normalized}/"
+
+
+class GPTImageClient:
+    def __init__(self, api_key: str, model: str, base_url: str | None = None):
         self.model = model
-        self.client = OpenAI(api_key=api_key)
+        client_options = {"api_key": api_key}
+        if base_url:
+            client_options["base_url"] = normalize_foundry_endpoint(base_url)
+        self.client = OpenAI(**client_options)
 
-    def gen_image(self, prompt: str, size: str = DALLE3_IMAGE_SIZE1, quality: str = DALLE3_QUALITY_STANDARD) -> tuple[str, str]:
-        if self.model_type == MODEL_TYPE_GPTIMAGE1:
-            response = self.client.images.generate(
-                model=self.model,
-                prompt=prompt,
-                size=size,
-                quality=quality,
-                n=1
-            )
-        else:
-            response = self.client.images.generate(
-                model=self.model,
-                prompt=prompt,
-                size=size,
-                quality=quality,
-                n=1,
-                response_format="b64_json"
-            )
-        return response.data[0].b64_json, response.data[0].revised_prompt
-
-
-class DalleAzure:
-    def __init__(self, api_key: str, endpoint: str, model_type: str, model: str):
-        self.model_type = model_type
-        self.model = model
-        self.client = AzureOpenAI(
-            api_version="2024-10-21",
-            api_key=api_key,
-            azure_endpoint=endpoint
+    def gen_image(
+        self,
+        prompt: str,
+        size: str = IMAGE_SIZE_AUTO,
+        quality: str = IMAGE_QUALITY_AUTO,
+    ) -> tuple[str, str]:
+        response = self.client.images.generate(
+            model=self.model,
+            prompt=prompt,
+            size=size,
+            quality=quality,
+            output_format="png",
+            n=1,
         )
 
-    def gen_image(self, prompt: str, size: str = DALLE3_IMAGE_SIZE1, quality: str = DALLE3_QUALITY_STANDARD) -> tuple[str, str]:
-        if self.model_type == MODEL_TYPE_GPTIMAGE1:
-            response = self.client.images.generate(
-                model=self.model,
-                prompt=prompt,
-                size=size,
-                quality=quality,
-                n=1
-            )
-        else :
-            response = self.client.images.generate(
-                model=self.model,
-                prompt=prompt,
-                size=size,
-                quality=quality,
-                n=1,
-                response_format="b64_json"
-            )
-        return response.data[0].b64_json, response.data[0].revised_prompt
+        image = response.data[0]
+        if not image.b64_json:
+            raise ValueError("画像生成APIから画像データが返されませんでした。")
+
+        # GPT Image models do not return revised_prompt. Keep the field empty
+        # so existing session log files remain compatible.
+        revised_prompt = getattr(image, "revised_prompt", None) or ""
+        return image.b64_json, revised_prompt

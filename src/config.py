@@ -1,6 +1,6 @@
 # DalleCraft
 #
-# Copyright (c) 2025 led-mirage
+# Copyright (c) 2025-2026 led-mirage
 # このソースコードは MITライセンス の下でライセンスされています。
 # ライセンスの詳細については、このプロジェクトのLICENSEファイルを参照してください。
 
@@ -8,33 +8,30 @@ import json
 
 
 class Config:
-    FILE_VERSION = "2.0"
+    FILE_VERSION = "3.0"
+
+    DEFAULT_VARIANT = "flare"
+    DEFAULT_SIZE = "auto"
+    DEFAULT_QUALITY = "auto"
+    DEFAULT_WELCOME_MESSAGE = "DalleCraft is a tool for generating images using GPT Image 2.5."
+    LEGACY_WELCOME_MESSAGE = "DalleCraft is a tool for generating images using DALL-E3."
 
     def __init__(self, config_path=None):
         self.version = None
         self.api_type = None
         self.openai = {
-            "api_key_envvar": None,
-            "model_name": None
+            "api_key_envvar": None
         }
-        self.azure = {
+        self.foundry = {
             "api_key_envvar": None,
             "endpoint_envvar": None,
-            "model_name": None
+            "flare_deployment": None,
+            "sunburst_deployment": None
         }
         self.model = {
-            "model_type": None,
-            "dalle2": {
-                "size": None,
-            },
-            "dalle3": {
-                "size": None,
-                "quality": None
-            },
-            "gptimage1": {
-                "size": None,
-                "quality": None
-            }
+            "variant": None,
+            "size": None,
+            "quality": None
         }
         self.system = {
             "window_width": None,
@@ -46,46 +43,61 @@ class Config:
             self.load(config_path)
 
     def get_model_param(self):
-        if self.model["model_type"] == "dalle3":
-            return self.model["dalle3"]["size"], self.model["dalle3"]["quality"]
-        elif self.model["model_type"] == "dalle2":
-            return self.model["dalle2"]["size"], "standard"
-        elif self.model["model_type"] == "gptimage1":
-            return self.model["gptimage1"]["size"], self.model["gptimage1"]["quality"]
-        else:
-            return None, None
+        return self.model["size"], self.model["quality"]
+
+    def get_model_name(self) -> str:
+        variant = self.model["variant"]
+        if self.api_type == "foundry":
+            return self.foundry[f"{variant}_deployment"]
+        return f"gpt-image-2.5-{variant}"
 
     def load(self, config_path):
         with open(config_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             self.version = data.get("version", None)
-            self.api_type = data.get("api_type", "openai")
+            api_type = data.get("api_type", "openai")
+            self.api_type = "foundry" if api_type == "azure" else api_type
             self.openai["api_key_envvar"] = data.get("openai", {}).get("api_key_envvar", "OPENAI_API_KEY")
-            self.openai["model_name"] = data.get("openai", {}).get("model_name", "dall-e-3")
-            self.azure["api_key_envvar"] = data.get("azure", {}).get("api_key_envvar", "AZURE_OPENAI_API_KEY")
-            self.azure["endpoint_envvar"] = data.get("azure", {}).get("endpoint_envvar", "AZURE_OPENAI_ENDPOINT")
-            self.azure["model_name"] = data.get("azure", {}).get("model_name", "dall-e-3")
-            self.model["model_type"] = data.get("model", {}).get("model_type", "dalle3")
-            self.model["dalle2"]["size"] = data.get("model", {}).get("dalle2", {}).get("size", "1024x1024")
-            self.model["dalle3"]["size"] = data.get("model", {}).get("dalle3", {}).get("size", "1792x1024")
-            self.model["dalle3"]["quality"] = data.get("model", {}).get("dalle3", {}).get("quality", "standard")
-            self.model["gptimage1"]["size"] = data.get("model", {}).get("gptimage1", {}).get("size", "1536x1024")
-            self.model["gptimage1"]["quality"] = data.get("model", {}).get("gptimage1", {}).get("quality", "low")
+
+            # v2 used the "azure" key and a single deployment name. Read both
+            # formats so existing installations can open the v3 settings page.
+            foundry_data = data.get("foundry", data.get("azure", {}))
+            self.foundry["api_key_envvar"] = foundry_data.get("api_key_envvar", "AZURE_OPENAI_API_KEY")
+            self.foundry["endpoint_envvar"] = foundry_data.get("endpoint_envvar", "AZURE_OPENAI_ENDPOINT")
+            self.foundry["flare_deployment"] = foundry_data.get("flare_deployment", "gpt-image-2.5-flare")
+            self.foundry["sunburst_deployment"] = foundry_data.get("sunburst_deployment", "gpt-image-2.5-sunburst")
+
+            model_data = data.get("model", {})
+            variant = model_data.get("variant", self.DEFAULT_VARIANT)
+            self.model["variant"] = variant if variant in ("flare", "sunburst") else self.DEFAULT_VARIANT
+
+            if "size" in model_data:
+                self.model["size"] = model_data["size"]
+            else:
+                self.model["size"] = model_data.get("gptimage1", {}).get("size", self.DEFAULT_SIZE)
+
+            if "quality" in model_data:
+                quality = model_data["quality"]
+            else:
+                quality = model_data.get("gptimage1", {}).get("quality", self.DEFAULT_QUALITY)
+            self.model["quality"] = quality if quality in ("low", "medium", "high", "xhigh", "max", "auto") else self.DEFAULT_QUALITY
+
             self.system["window_width"] = data.get("system", {}).get("window_width", 1024)
             self.system["window_height"] = data.get("system", {}).get("window_height", 800)
             self.system["welcome_title"] = data.get("system", {}).get("welcome_title", "Welcome")
-            self.system["welcome_message"] = data.get("system", {}).get("welcome_message", "DalleCraft is a tool for generating images using DALL-E3.")
+            welcome_message = data.get("system", {}).get("welcome_message", self.DEFAULT_WELCOME_MESSAGE)
+            self.system["welcome_message"] = self.DEFAULT_WELCOME_MESSAGE if welcome_message == self.LEGACY_WELCOME_MESSAGE else welcome_message
 
     def save(self, config_path):
-        with open(config_path, 'w') as f:
-            json.dump(self.to_dict(), f, indent=4)
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, ensure_ascii=False, indent=4)
 
     def to_dict(self):
         return {
             "version": self.FILE_VERSION,
             "api_type": self.api_type,
             "openai": self.openai,
-            "azure": self.azure,
+            "foundry": self.foundry,
             "model": self.model,
             "system": self.system
         }

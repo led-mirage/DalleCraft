@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>DalleClient</title>
+    <title>DalleCraft 設定</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
     <style>
@@ -35,6 +35,12 @@
         h3 {
             margin: 0.75rem;
         }
+
+        .description {
+            color: #555;
+            font-size: 0.9rem;
+            margin: 0.5rem 0 0;
+        }
     </style>
 </head>
 <body>
@@ -54,8 +60,8 @@
             <div class="setting-group">
                 <input type="radio" id="optionOpenAI" name="apiType" value="openai" checked>
                 <label for="optionOpenAI">OpenAI</label>
-                <input type="radio" id="optionAzure" name="apiType" value="azure">
-                <label for="optionAzure">Azure</label>
+                <input type="radio" id="optionFoundry" name="apiType" value="foundry">
+                <label for="optionFoundry">Microsoft Foundry</label>
             </div>
         </div>
         <div class="category" id="openai-setting" style="display: none;">
@@ -65,94 +71,68 @@
                     <label for="openaiApiKey">APIキー用環境変数:</label>
                     <input type="text" id="openaiApiKey" placeholder="APIキーを格納する環境変数名を入力">
                 </div>
-                <div class="form-group">
-                    <label for="openaiModelName">モデル名:</label>
-                    <input type="text" id="openaiModelName" placeholder="モデル名を入力">
-                </div>
             </div>
         </div>
 
-        <div class="category" id="azure-setting" style="display: none;">
-            <h3>Azure用設定</h3>
+        <div class="category" id="foundry-setting" style="display: none;">
+            <h3>Microsoft Foundry用設定</h3>
             <div class="setting-group">
                 <div class="form-group">
-                    <label for="azureApiKey">APIキー用環境変数:</label>
-                    <input type="text" id="azureApiKey" placeholder="APIキーを格納する環境変数名を入力">
+                    <label for="foundryApiKey">APIキー用環境変数:</label>
+                    <input type="text" id="foundryApiKey" placeholder="APIキーを格納する環境変数名を入力">
                 </div>
                 <div class="form-group">
-                    <label for="azureEndpoint">エンドポイント用環境変数:</label>
-                    <input type="text" id="azureEndpoint" placeholder="エンドポイントを格納する環境変数名を入力">
+                    <label for="foundryEndpoint">OpenAI v1エンドポイント用環境変数:</label>
+                    <input type="text" id="foundryEndpoint" placeholder="エンドポイントを格納する環境変数名を入力">
                 </div>
                 <div class="form-group">
-                    <label for="azureModelName">モデル名:</label>
-                    <input type="text" id="azureModelName" placeholder="モデル名を入力">
+                    <label for="foundryFlareDeployment">Flareのデプロイ名:</label>
+                    <input type="text" id="foundryFlareDeployment" placeholder="gpt-image-2.5-flare">
                 </div>
+                <div class="form-group">
+                    <label for="foundrySunburstDeployment">Sunburstのデプロイ名:</label>
+                    <input type="text" id="foundrySunburstDeployment" placeholder="gpt-image-2.5-sunburst">
+                </div>
+                <p class="description">エンドポイントにはFoundryのデプロイ画面に表示されるOpenAI v1推論エンドポイントを使用してください。</p>
             </div>
         </div>
         <div class="category">
             <h3>モデル</h3>
             <div class="setting-group">
-                <input type="radio" id="optionDalle2" name="modelType" value="dalle2">
-                <label for="optionDalle2">DALL-E2</label>
-                <input type="radio" id="optionDalle3" name="modelType" value="dalle3" checked>
-                <label for="optionDalle3">DALL-E3</label>
-                <input type="radio" id="optionGPTImage1" name="modelType" value="gptimage1">
-                <label for="optionGPTImage1">GPT-Image-1</label>
+                <input type="radio" id="optionFlare" name="modelVariant" value="flare" checked>
+                <label for="optionFlare">GPT Image 2.5 Flare（高速）</label>
+                <input type="radio" id="optionSunburst" name="modelVariant" value="sunburst">
+                <label for="optionSunburst">GPT Image 2.5 Sunburst（高精度）</label>
             </div>
         </div>
-        <div class="category" id="dalle2-size-setting" style="display: none;">
+        <div class="category">
             <h3>画像サイズ</h3>
             <div class="setting-group">
-                <input type="radio" id="optionDalle2_256x256" name="dalle2_imageSize" value="256x256">
-                <label for="optionDalle2_256x256">256x256</label>
-                <input type="radio" id="optionDalle2_512x512" name="dalle2_imageSize" value="512x512">
-                <label for="optionDalle2_512x512">512x512</label>
-                <input type="radio" id="optionDalle2_1024x1024" name="dalle2_imageSize" value="1024x1024">
-                <label for="optionDalle2_1024x1024">1024x1024</label>
+                <input type="radio" id="optionSizeAuto" name="imageSize" value="auto" checked>
+                <label for="optionSizeAuto">自動</label>
+                <input type="radio" id="optionSizeSquare" name="imageSize" value="1024x1024">
+                <label for="optionSizeSquare">1024x1024</label>
+                <input type="radio" id="optionSizeLandscape" name="imageSize" value="1536x1024">
+                <label for="optionSizeLandscape">1536x1024</label>
+                <input type="radio" id="optionSizePortrait" name="imageSize" value="1024x1536">
+                <label for="optionSizePortrait">1024x1536</label>
             </div>
         </div>
-        <div class="category" id="dalle3-size-setting" style="display: none;">
-            <h3>画像サイズ</h3>
-            <div class="setting-group">
-                <input type="radio" id="optionDalle3_1024x1024" name="dalle3_imageSize" value="1024x1024">
-                <label for="optionDalle3_1024x1024">1024x1024</label>
-                <input type="radio" id="optionDalle3_1792x1024" name="dalle3_imageSize" value="1792x1024">
-                <label for="optionDalle3_1792x1024">1792x1024</label>
-                <input type="radio" id="optionDalle3_1024x1792" name="dalle3_imageSize" value="1024x1792">
-                <label for="optionDalle3_1024x1792">1024x1792</label>
-            </div>
-        </div>
-        <div class="category" id="gptimage1-size-setting" style="display: none;">
-            <h3>画像サイズ</h3>
-            <div class="setting-group">
-                <input type="radio" id="optionGPTImage1_1024x1024" name="gptimage1_imageSize" value="1024x1024">
-                <label for="optionGPTImage1_1024x1024">1024x1024</label>
-                <input type="radio" id="optionGPTImage1_1536x1024" name="gptimage1_imageSize" value="1536x1024">
-                <label for="optionGPTImage1_1536x1024">1536x1024</label>
-                <input type="radio" id="optionGPTImage1_1024x1536" name="gptimage1_imageSize" value="1024x1536">
-                <label for="optionGPTImage1_1024x1536">1024x1536</label>
-                <input type="radio" id="optionGPTImage1_auto" name="gptimage1_imageSize" value="auto">
-                <label for="optionGPTImage1_auto">自動</label>
-            </div>
-        </div>
-        <div class="category" id="dalle3-quality-setting" style="display: none;">
+        <div class="category">
             <h3>画質</h3>
             <div class="setting-group">
-                <input type="radio" id="optionDalle3_Standard" name="dalle3_imageQuality" value="standard">
-                <label for="optionDalle3_Standard">標準</label>
-                <input type="radio" id="optionDalle3_HD" name="dalle3_imageQuality" value="hd">
-                <label for="optionDalle3_HD">高画質</label>
-            </div>
-        </div>
-        <div class="category" id="gptimage1-quality-setting" style="display: none;">
-            <h3>画質</h3>
-            <div class="setting-group">
-                <input type="radio" id="optionGPTImage1_Low" name="gptimage1_imageQuality" value="low">
-                <label for="optionGPTImage1_Low">低画質</label>
-                <input type="radio" id="optionGPTImage1_Medium" name="gptimage1_imageQuality" value="medium">
-                <label for="optionGPTImage1_Medium">標準</label>
-                <input type="radio" id="optionGPTImage1_High" name="gptimage1_imageQuality" value="high">
-                <label for="optionGPTImage1_High">高画質</label>
+                <input type="radio" id="optionQualityAuto" name="imageQuality" value="auto" checked>
+                <label for="optionQualityAuto">自動</label>
+                <input type="radio" id="optionQualityLow" name="imageQuality" value="low">
+                <label for="optionQualityLow">低</label>
+                <input type="radio" id="optionQualityMedium" name="imageQuality" value="medium">
+                <label for="optionQualityMedium">中</label>
+                <input type="radio" id="optionQualityHigh" name="imageQuality" value="high">
+                <label for="optionQualityHigh">高</label>
+                <input type="radio" id="optionQualityXHigh" name="imageQuality" value="xhigh">
+                <label for="optionQualityXHigh">最高</label>
+                <input type="radio" id="optionQualityMax" name="imageQuality" value="max">
+                <label for="optionQualityMax">最大</label>
             </div>
         </div>
     </div>
@@ -160,60 +140,29 @@
     <footer><span id="copyright">Copyright</span></footer>
 </div>
 <script>
-window.addEventListener("DOMContentLoaded", async function() {
+window.addEventListener("DOMContentLoaded", function() {
     const apiTypeRadioButtons = document.querySelectorAll('input[name="apiType"]');
     apiTypeRadioButtons.forEach(radio => {
         radio.addEventListener('change', function(event) {
             if (event.target.checked) {
-                const apiType = event.target.value;
-                if (apiType === "openai") {
-                    document.getElementById("openai-setting").style.display = "block";
-                    document.getElementById("azure-setting").style.display = "none";
-                } else {
-                    document.getElementById("openai-setting").style.display = "none";
-                    document.getElementById("azure-setting").style.display = "block";
-                }
-            }
-        });
-    });
-
-    const modelTypeRadioButtons = document.querySelectorAll('input[name="modelType"]');
-    modelTypeRadioButtons.forEach(radio => {
-        radio.addEventListener('change', function(event) {
-            if (event.target.checked) {
-                const modelType = event.target.value;
-                if (modelType === "dalle2") {
-                    document.getElementById("dalle2-size-setting").style.display = "block";
-                    document.getElementById("dalle3-size-setting").style.display = "none";
-                    document.getElementById("dalle3-quality-setting").style.display = "none";
-                    document.getElementById("gptimage1-size-setting").style.display = "none";
-                    document.getElementById("gptimage1-quality-setting").style.display = "none";
-                } else if (modelType === "dalle3") {
-                    document.getElementById("dalle2-size-setting").style.display = "none";
-                    document.getElementById("dalle3-size-setting").style.display = "block";
-                    document.getElementById("dalle3-quality-setting").style.display = "block";
-                    document.getElementById("gptimage1-size-setting").style.display = "none";
-                    document.getElementById("gptimage1-quality-setting").style.display = "none";
-                } else {
-                    document.getElementById("dalle2-size-setting").style.display = "none";
-                    document.getElementById("dalle3-size-setting").style.display = "none";
-                    document.getElementById("dalle3-quality-setting").style.display = "none";
-                    document.getElementById("gptimage1-size-setting").style.display = "block";
-                    document.getElementById("gptimage1-quality-setting").style.display = "block";
-                }
-
-                const apiType = document.querySelector('input[name="apiType"]:checked').value;
-                if (modelType === "dalle2") {
-                    document.getElementById("openaiModelName").value = "dall-e-2";
-                } else if (modelType === "dalle3") {
-                    document.getElementById("openaiModelName").value = "dall-e-3";
-                } else {
-                    document.getElementById("openaiModelName").value = "gpt-image-1";
-                }
+                showApiSettings(event.target.value);
             }
         });
     });
 });
+
+function showApiSettings(apiType) {
+    document.getElementById("openai-setting").style.display = apiType === "openai" ? "block" : "none";
+    document.getElementById("foundry-setting").style.display = apiType === "foundry" ? "block" : "none";
+}
+
+function setRadioValue(name, value, fallback) {
+    const radio = document.querySelector(`input[name="${name}"][value="${value}"]`)
+        || document.querySelector(`input[name="${name}"][value="${fallback}"]`);
+    if (radio) {
+        radio.checked = true;
+    }
+}
 
 // pywebview初期化
 window.addEventListener("pywebviewready", async function() {
@@ -223,90 +172,23 @@ window.addEventListener("pywebviewready", async function() {
 // コンポーネント初期化
 async function initComponents() {
     const info = await pywebview.api.api_get_app_info();
-    footer = document.getElementById("copyright");
+    const footer = document.getElementById("copyright");
     if (footer) {
         footer.textContent = info.copyright;
     }
 
     const config = await pywebview.api.api_get_config();
-    if (config.api_type === "openai") {
-        document.getElementById("optionOpenAI").checked = true;
-        document.getElementById("openai-setting").style.display = "block";
-    } else {
-        document.getElementById("optionAzure").checked = true;
-        document.getElementById("azure-setting").style.display = "block";
-    }
-    
+    setRadioValue("apiType", config.api_type, "openai");
+    showApiSettings(config.api_type);
     document.getElementById("openaiApiKey").value = config.openai.api_key_envvar;
-    document.getElementById("openaiModelName").value = config.openai.model_name;
-    
-    document.getElementById("azureApiKey").value = config.azure.api_key_envvar;
-    document.getElementById("azureEndpoint").value = config.azure.endpoint_envvar;
-    document.getElementById("azureModelName").value = config.azure.model_name;
+    document.getElementById("foundryApiKey").value = config.foundry.api_key_envvar;
+    document.getElementById("foundryEndpoint").value = config.foundry.endpoint_envvar;
+    document.getElementById("foundryFlareDeployment").value = config.foundry.flare_deployment;
+    document.getElementById("foundrySunburstDeployment").value = config.foundry.sunburst_deployment;
 
-    const modelType = config.model.model_type;
-    if (modelType === "dalle2") {
-        document.getElementById("optionDalle2").checked = true;
-        document.getElementById("dalle2-size-setting").style.display = "block";
-        document.getElementById("dalle3-size-setting").style.display = "none";
-        document.getElementById("dalle3-quality-setting").style.display = "none";
-        document.getElementById("gptimage1-size-setting").style.display = "none";
-        document.getElementById("gptimage1-quality-setting").style.display = "none";
-    } else if (modelType === "dalle3") {
-        document.getElementById("optionDalle3").checked = true;
-        document.getElementById("dalle2-size-setting").style.display = "none";
-        document.getElementById("dalle3-size-setting").style.display = "block";
-        document.getElementById("dalle3-quality-setting").style.display = "block";
-        document.getElementById("gptimage1-size-setting").style.display = "none";
-        document.getElementById("gptimage1-quality-setting").style.display = "none";
-    } else {
-        document.getElementById("optionGPTImage1").checked = true;
-        document.getElementById("dalle2-size-setting").style.display = "none";
-        document.getElementById("dalle3-size-setting").style.display = "none";
-        document.getElementById("dalle3-quality-setting").style.display = "none";
-        document.getElementById("gptimage1-size-setting").style.display = "block";
-        document.getElementById("gptimage1-quality-setting").style.display = "block";
-    }
-
-    if (config.model.dalle2.size === "256x256") {
-        document.getElementById("optionDalle2_256x256").checked = true;
-    } else if (config.model.dalle2.size === "512x512") {
-        document.getElementById("optionDalle2_512x512").checked = true;
-    } else {
-        document.getElementById("optionDalle2_1024x1024").checked = true;
-    }
-
-    if (config.model.dalle3.size === "1024x1024") {
-        document.getElementById("optionDalle3_1024x1024").checked = true;
-    } else if (config.model.dalle3.size === "1792x1024") {
-        document.getElementById("optionDalle3_1792x1024").checked = true;
-    } else {
-        document.getElementById("optionDalle3_1024x1792").checked = true;
-    }
-
-    if (config.model.dalle3.quality === "standard") {
-        document.getElementById("optionDalle3_Standard").checked = true;
-    } else {
-        document.getElementById("optionDalle3_HD").checked = true;
-    }
-
-    if (config.model.gptimage1.size === "1024x1024") {
-        document.getElementById("optionGPTImage1_1024x1024").checked = true;
-    } else if (config.model.gptimage1.size === "1536x1024") {
-        document.getElementById("optionGPTImage1_1536x1024").checked = true;
-    } else if (config.model.gptimage1.size === "1024x1536") {
-        document.getElementById("optionGPTImage1_1024x1536").checked = true;
-    } else {
-        document.getElementById("optionGPTImage1_auto").checked = true;
-    }
-
-    if (config.model.gptimage1.quality === "low") {
-        document.getElementById("optionGPTImage1_Low").checked = true;
-    } else if (config.model.gptimage1.quality === "medium") {
-        document.getElementById("optionGPTImage1_Medium").checked = true;
-    } else {
-        document.getElementById("optionGPTImage1_High").checked = true;
-    }
+    setRadioValue("modelVariant", config.model.variant, "flare");
+    setRadioValue("imageSize", config.model.size, "auto");
+    setRadioValue("imageQuality", config.model.quality, "auto");
 }
 
 // キャンセルボタン押下イベント
@@ -315,40 +197,26 @@ function cancel() {
 }
 
 // OKボタン押下イベント
-function submit() {
+async function submit() {
     const apiType = document.querySelector('input[name="apiType"]:checked').value;
-    const openaiApiKey = document.getElementById("openaiApiKey").value;
-    const openaiModelName = document.getElementById("openaiModelName").value;
-    const azureApiKey = document.getElementById("azureApiKey").value;
-    const azureEndpoint = document.getElementById("azureEndpoint").value;
-    const azureModelName = document.getElementById("azureModelName").value;
     const config = {
         apiType: apiType,
         openai: {
-            api_key_envvar: openaiApiKey,
-            model_name: openaiModelName
+            api_key_envvar: document.getElementById("openaiApiKey").value.trim()
         },
-        azure: {
-            api_key_envvar: azureApiKey,
-            endpoint_envvar: azureEndpoint,
-            model_name: azureModelName
+        foundry: {
+            api_key_envvar: document.getElementById("foundryApiKey").value.trim(),
+            endpoint_envvar: document.getElementById("foundryEndpoint").value.trim(),
+            flare_deployment: document.getElementById("foundryFlareDeployment").value.trim(),
+            sunburst_deployment: document.getElementById("foundrySunburstDeployment").value.trim()
         },
         model: {
-            model_type: document.querySelector('input[name="modelType"]:checked').value,
-            dalle2: {
-                size: document.querySelector('input[name="dalle2_imageSize"]:checked').value
-            },
-            dalle3: {
-                size: document.querySelector('input[name="dalle3_imageSize"]:checked').value,
-                quality: document.querySelector('input[name="dalle3_imageQuality"]:checked').value
-            },
-            gptimage1: {
-                size: document.querySelector('input[name="gptimage1_imageSize"]:checked').value,
-                quality: document.querySelector('input[name="gptimage1_imageQuality"]:checked').value
-            }
+            variant: document.querySelector('input[name="modelVariant"]:checked').value,
+            size: document.querySelector('input[name="imageSize"]:checked').value,
+            quality: document.querySelector('input[name="imageQuality"]:checked').value
         }
     };
-    pywebview.api.api_submit_config(config);
+    await pywebview.api.api_submit_config(config);
 }
 </script>
 </body>
