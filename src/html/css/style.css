@@ -140,6 +140,17 @@ body, html {
 #quick-image-quality {
     width: 5rem;
 }
+.api-type-indicator {
+    margin-left: auto;
+    padding: 0.18rem 0.5rem;
+    color: #666;
+    background-color: #f3f3f3;
+    border: 1px solid #ddd;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    white-space: nowrap;
+}
 .prompt-area {
     width: 100%;
     display: flex;

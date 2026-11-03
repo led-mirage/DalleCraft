@@ -35,6 +35,7 @@ class IndexHtmlTest(unittest.TestCase):
 
         self.assertIn("quick-image-size", parser.ids)
         self.assertIn("quick-image-quality", parser.ids)
+        self.assertIn("current-api-type", parser.ids)
         self.assertIn("prompt-input-container", parser.ids)
         self.assertIn("input-image-preview", parser.ids)
         self.assertIn("input-image-preview-img", parser.ids)
@@ -47,6 +48,15 @@ class IndexHtmlTest(unittest.TestCase):
 
         for label in ("Auto", "Low", "Medium", "High", "XHigh", "Max"):
             self.assertRegex(source, rf'<option value="[^"]+">{label}</option>')
+
+    def test_displays_current_api_type(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("initCurrentApiType(config.api_type)", source)
+        self.assertIn('openai: "OpenAI"', source)
+        self.assertIn('foundry: "Microsoft Foundry"', source)
 
     def test_supports_paste_and_drop_input_images(self):
         source = (

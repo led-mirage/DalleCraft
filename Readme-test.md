@@ -12,7 +12,7 @@ python -m venv venv
 python -m pip install -r requirements.txt
 ```
 
-使用するPythonのバージョンは`.python-version`に記載されています。
+現在使用しているPythonのバージョンは3.14.10です。正確なバージョンは`.python-version`に記載されています。
 
 `requirements-build.txt`はアプリケーションのビルド用であり、テストの実行には不要です。
 
@@ -44,8 +44,10 @@ python -m unittest discover -s tests -p "test_dalle.py" -v
 
 ```powershell
 python -m unittest discover -s tests -p "test_config.py" -v
+python -m unittest discover -s tests -p "test_generation_logger.py" -v
 python -m unittest discover -s tests -p "test_index_service.py" -v
 python -m unittest discover -s tests -p "test_html.py" -v
+python -m unittest discover -s tests -p "test_session.py" -v
 ```
 
 ## 各テストの概要
@@ -69,17 +71,34 @@ GPT ImageクライアントとAPIへ渡すパラメーターを検証します�
 - `flare`と`sunburst`から、それぞれ正しいOpenAIモデル名を取得できること
 - Azure OpenAIおよびMicrosoft Foundryのエンドポイントを`/openai/v1/`形式へ正規化できること
 - 指定したデプロイ名、プロンプト、画像サイズ、品質、PNG形式が画像生成APIへ正しく渡されること
-- APIレスポンスからBase64画像と修正済みプロンプトを取得できること
+- 入力画像が画像編集APIへ正しく渡され、API呼び出し中にファイルが開かれること
+- APIレスポンスからBase64画像と改訂版プロンプトを取得できること
 
 OpenAIクライアントはモックへ置き換えているため、実際のAPI通信や課金は発生しません。
 
+### `tests/test_generation_logger.py`
+
+画像生成ログへ通常生成と参照画像付き生成の情報が正しく記録されることを検証します。
+
+- 入力画像がない場合に通常生成として記録されること
+- 入力画像がある場合に参照画像付き生成として記録されること
+- 入力画像のファイル名、変換前後の解像度と容量、縮小有無が記録されること
+
 ### `tests/test_index_service.py`
 
-画面側のサービスが設定内容と環境変数から画像生成クライアントを正しく構築することを検証します。
+画面側のサービスが画像生成クライアントを構築し、クイック設定と入力画像を正しく処理することを検証します。
 
 - 選択中のモデルに対応するFoundryデプロイ名を使用すること
 - 設定された名前の環境変数からAPIキーとエンドポイントを取得すること
 - APIキー、正規化済みエンドポイント、デプロイ名を`GPTImageClient`へ渡すこと
+- 解像度と品質のクイック設定を保存し、不正な設定値を拒否すること
+- クリップボードまたはドラッグ＆ドロップから入力画像を登録・解除できること
+- 画像以外のデータと20MB以上の入力画像を拒否すること
+- 長辺が2048pxを超える画像を縦横比を維持して縮小すること
+- PNG画像を縮小しても透明度が維持されること
+- 登録した入力画像を参照画像として画像生成処理へ渡すこと
+- 入力画像とサムネイルを`logs/input-images`へ保存すること
+- エントリー削除時に生成画像と入力画像を削除すること
 
 画像生成クライアントはモックへ置き換え、APIキーとエンドポイントにはテスト専用の値を使用します。そのため、外部APIへの接続は行いません。
 
@@ -89,8 +108,20 @@ OpenAIクライアントはモックへ置き換えているため、実際のAP
 
 - `src/html/config.html`内の要素IDを収集すること
 - JavaScriptの`getElementById()`が参照するIDが、すべてHTML内に存在すること
+- 解像度・品質のクイック設定と入力画像プレビューの要素が存在すること
+- 品質の選択肢が英語表記であること
+- 現在使用中のAPI種別を表示する処理が存在すること
+- クリップボード貼り付けとドラッグ＆ドロップの処理が存在すること
+- 入力画像の20MB制限と縮小通知の処理が存在すること
 
 設定画面の要素を削除または改名した際に、JavaScript側の参照だけが古いまま残る問題を検出できます。
+
+### `tests/test_session.py`
+
+セッションエントリーの入力画像メタデータに関する互換性と保存形式を検証します。
+
+- 入力画像情報を持たない古いセッションデータを読み込めること
+- 入力画像のファイル名、解像度、容量、縮小有無を保存・復元できること
 
 ## APIキーについて
 

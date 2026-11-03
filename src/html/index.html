@@ -80,6 +80,7 @@
                 <option value="xhigh">XHigh</option>
                 <option value="max">Max</option>
             </select>
+            <span id="current-api-type" class="api-type-indicator" title="現在使用中のAPI"></span>
         </div>
         <div class="prompt-area">
             <div id="prompt-input-container" class="prompt-input-container">
@@ -210,6 +211,17 @@ async function initComponents() {
         footer.textContent = info.copyright;
     }
     initQuickSettings(config.model);
+    initCurrentApiType(config.api_type);
+}
+
+// 現在使用中のAPI種別を表示する
+function initCurrentApiType(apiType) {
+    const indicator = document.getElementById("current-api-type");
+    const labels = {
+        openai: "OpenAI",
+        foundry: "Microsoft Foundry"
+    };
+    indicator.textContent = "API: " + (labels[apiType] || apiType || "-");
 }
 
 // クイック設定を現在の設定値で初期化する
