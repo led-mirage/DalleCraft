@@ -37,6 +37,9 @@ OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとG
 - OpenAI APIとMicrosoft Foundryに対応
 - `Ctrl+V`またはドラッグ＆ドロップで参照画像を添付した画像生成に対応
 - メイン画面から解像度と画質を変更できるクイック設定
+- 生成画像の右クリックメニューから画像をクリップボードへコピー
+- 元のプロンプトと参照画像を使った画像の再作成
+- 拡大表示した画像をマウス操作でズーム・移動
 - 生成画像と入力画像をセッションごとに保存し、過去の履歴を閲覧可能
 
 ### メリット
@@ -139,9 +142,9 @@ GPT Image API利用料金は[OpenAIの公式サイト](https://developers.openai
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/ba093ea592e1f787fb5dcc78a96b845d2a5abf195a40ff46874eda0e4f16cc30/detection)で確認できます（2026/11/03 v2.1.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/42bbddf5686c853351df5b70d4b78fcc8dc6f7b487b5f18e41842fc653399923/detection)で確認できます（2026/11/04 v2.2.0）
 
-70個中2個のアンチウィルスエンジンで検出
+60個中2個のアンチウィルスエンジンで検出
 
 <div class="page"/>
 
@@ -186,6 +189,12 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 <div class="page"/>
 
 ## 💎 バージョン履歴
+
+### 2.2.0 (2026/11/04)
+
+- 生成画像をクリップボードへコピーする右クリックメニューを追加
+- 拡大表示した画像のズームとドラッグ移動に対応
+- 画像の再作成時に元の参照画像も再送信するように変更
 
 ### 2.1.0 (2026/11/03)
 

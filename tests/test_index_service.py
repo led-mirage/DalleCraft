@@ -141,6 +141,24 @@ class IndexServiceTest(unittest.TestCase):
         self.assertTrue(release_result["success"])
         self.assertNotIn(result["input_image_id"], service._pending_input_images)
 
+    @patch("services.index_service.copy_image_to_clipboard")
+    def test_copies_generated_image_to_clipboard(self, copy_image):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = Mock()
+        session_manager.get_current_session.return_value.find_entry.return_value = Mock(
+            image_filename="generated.png"
+        )
+        service = self.create_service(config, session_manager)
+
+        with tempfile.TemporaryDirectory() as image_dir:
+            image_path = Path(image_dir) / "generated.png"
+            image_path.write_bytes(b"image")
+            with patch("services.index_service.IMAGE_DIR", image_dir):
+                result = service.api_copy_image(1)
+
+        self.assertTrue(result["success"])
+        copy_image.assert_called_once_with(str(image_path))
+
     def test_rejects_non_image_input(self):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")
         service = self.create_service(config)
@@ -254,6 +272,113 @@ class IndexServiceTest(unittest.TestCase):
         self.assertEqual("source.png", result["input_images"][0]["original_name"])
         self.assertNotIn(registered["input_image_id"], service._pending_input_images)
         log.assert_called_once()
+
+    def test_regenerates_with_original_prompt_and_input_image(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        original = SessionEntry(
+            "original prompt",
+            "",
+            "openai",
+            "gpt-image-2.5-flare",
+            "1024x1024",
+            "high",
+            True,
+            1.0,
+            "generated.png",
+            "generated_thumbnail.png",
+            input_images=[{
+                "filename": "input.png",
+                "original_name": "source.png",
+                "source": "drop",
+                "mime_type": "image/png",
+            }],
+        )
+        session.add_entry(original)
+        service = self.create_service(config, session_manager)
+        service.api_gen_image = Mock(return_value={"id": 2, "success": True})
+
+        with tempfile.TemporaryDirectory() as input_dir:
+            input_path = Path(input_dir) / "input.png"
+            input_path.write_bytes(base64.b64decode(self.create_png_base64()))
+            with patch("services.index_service.INPUT_IMAGE_DIR", input_dir):
+                result = service.api_regenerate_image(
+                    original.id,
+                    {
+                        "size": "1536x1024",
+                        "quality": "high",
+                        "input_image_id": "unrelated-pending-image",
+                    },
+                )
+
+        self.assertTrue(result["success"])
+        prompt, options = service.api_gen_image.call_args.args
+        self.assertEqual("original prompt", prompt)
+        self.assertEqual("1536x1024", options["size"])
+        self.assertEqual("high", options["quality"])
+        self.assertNotEqual("unrelated-pending-image", options["input_image_id"])
+        self.assertNotIn(options["input_image_id"], service._pending_input_images)
+
+    def test_regeneration_without_original_input_ignores_pending_input(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        original = SessionEntry(
+            "original prompt",
+            "",
+            "openai",
+            "gpt-image-2.5-flare",
+            "1024x1024",
+            "high",
+            True,
+            1.0,
+            "generated.png",
+            "generated_thumbnail.png",
+        )
+        session.add_entry(original)
+        service = self.create_service(config, session_manager)
+        service.api_gen_image = Mock(return_value={"id": 2, "success": True})
+
+        service.api_regenerate_image(
+            original.id,
+            {
+                "size": "1024x1024",
+                "quality": "high",
+                "input_image_id": "unrelated-pending-image",
+            },
+        )
+
+        _, options = service.api_gen_image.call_args.args
+        self.assertNotIn("input_image_id", options)
+
+    def test_regeneration_fails_when_original_input_file_is_missing(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        original = SessionEntry(
+            "original prompt",
+            "",
+            "openai",
+            "gpt-image-2.5-flare",
+            "1024x1024",
+            "high",
+            True,
+            1.0,
+            "generated.png",
+            "generated_thumbnail.png",
+            input_images=[{"filename": "missing.png"}],
+        )
+        session.add_entry(original)
+        service = self.create_service(config, session_manager)
+        service.api_gen_image = Mock()
+
+        with tempfile.TemporaryDirectory() as input_dir:
+            with patch("services.index_service.INPUT_IMAGE_DIR", input_dir):
+                result = service.api_regenerate_image(original.id)
+
+        self.assertIn("元の参照画像ファイルが見つかりません", result["error_info"])
+        service.api_gen_image.assert_not_called()
 
     def test_removes_generated_and_input_image_files(self):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")

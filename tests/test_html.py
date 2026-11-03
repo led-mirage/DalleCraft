@@ -68,6 +68,34 @@ class IndexHtmlTest(unittest.TestCase):
         self.assertIn("file.size >= 20 * 1024 * 1024", source)
         self.assertIn("result.resize_message", source)
 
+    def test_supports_copying_generated_images(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('id="copy-image"', source)
+        self.assertIn("pywebview.api.api_copy_image(cardId)", source)
+        self.assertIn("画像をクリップボードにコピーしました", source)
+
+    def test_supports_zooming_modal_images(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('id="image-modal-viewport"', source)
+        self.assertIn('viewport.addEventListener("wheel"', source)
+        self.assertIn('modalImg.addEventListener("mousedown"', source)
+        self.assertIn('modalImg.addEventListener("dblclick"', source)
+        self.assertIn("function clampImageModalPosition()", source)
+
+    def test_regenerates_with_the_original_entry(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("regenerateImage(parseInt(target.dataset.entryId))", source)
+        self.assertIn("pywebview.api.api_regenerate_image(entryId, getQuickSettings())", source)
+
 
 if __name__ == "__main__":
     unittest.main()

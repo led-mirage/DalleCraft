@@ -22,6 +22,7 @@ from app_const import APP_NAME, CONFIG_FILE, IMAGE_DIR
 from app_window import AppWindow
 from config import Config
 from dalle import GPTImageClient
+from image_clipboard import copy_image_to_clipboard
 from session import LOG_DIR, SessionManager, SessionEntry, Session
 from generation_logger import ImageGenerationLogger
 
@@ -560,6 +561,44 @@ class IndexService:
         except Exception as e:
             return {"error_info": str(e)}
 
+    def api_regenerate_image(self, entry_id: int, options: dict | None = None) -> dict:
+        session = self.session_manager.get_current_session()
+        entry = session.find_entry(entry_id)
+        if entry is None:
+            return {"error_info": "再作成する画像が見つかりません。"}
+        if options is not None and not isinstance(options, dict):
+            return {"error_info": "生成オプションの形式が正しくありません。"}
+
+        # 入力欄で準備中の参照画像は再作成リクエストへ混ぜない。
+        regeneration_options = dict(options or {})
+        regeneration_options.pop("input_image_id", None)
+        regenerated_input_id = None
+        try:
+            if entry.input_images:
+                input_image = entry.input_images[0]
+                input_filename = input_image.get("filename", "")
+                input_path = self.get_stored_input_image_path(input_filename)
+                if not input_filename or not os.path.exists(input_path):
+                    return {"error_info": "元の参照画像ファイルが見つかりません。"}
+
+                with open(input_path, "rb") as image_file:
+                    image_base64 = base64.b64encode(image_file.read()).decode("ascii")
+                registered = self.register_input_image({
+                    "filename": input_image.get("original_name") or input_filename,
+                    "source": input_image.get("source", "clipboard"),
+                    "mime_type": input_image.get("mime_type", "image/png"),
+                    "image_base64": image_base64,
+                })
+                regenerated_input_id = registered["input_image_id"]
+                regeneration_options["input_image_id"] = regenerated_input_id
+
+            return self.api_gen_image(entry.prompt, regeneration_options)
+        except Exception as e:
+            return {"error_info": str(e)}
+        finally:
+            if regenerated_input_id:
+                self.release_input_image(regenerated_input_id)
+
     def api_save_image(self, entry_id: int):
         session = self.session_manager.get_current_session()
         entry = session.find_entry(entry_id)
@@ -567,6 +606,25 @@ class IndexService:
         if dst_path:
             src_path = os.path.join(IMAGE_DIR, entry.image_filename)
             shutil.copy2(src_path, dst_path)
+
+    def api_copy_image(self, entry_id: int) -> dict:
+        session = self.session_manager.get_current_session()
+        entry = session.find_entry(entry_id)
+        if entry is None or not entry.image_filename:
+            return {"success": False, "error_info": "コピーする画像が見つかりません。"}
+
+        image_path = os.path.join(IMAGE_DIR, entry.image_filename)
+        if not os.path.exists(image_path):
+            return {"success": False, "error_info": "画像ファイルが見つかりません。"}
+
+        try:
+            copy_image_to_clipboard(image_path)
+            return {"success": True}
+        except Exception as e:
+            return {
+                "success": False,
+                "error_info": f"画像をクリップボードにコピーできませんでした。\n{e}",
+            }
 
     def api_get_image_base64(self, entry_id: int) -> str:
         session = self.session_manager.get_current_session()

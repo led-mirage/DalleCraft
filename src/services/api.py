@@ -37,6 +37,9 @@ class Api:
     def api_gen_image(self, prompt: str, options: dict | None = None) -> dict:
         return self.index_service.api_gen_image(prompt, options)
 
+    def api_regenerate_image(self, entry_id: int, options: dict | None = None) -> dict:
+        return self.index_service.api_regenerate_image(entry_id, options)
+
     def api_update_generation_options(self, options: dict) -> dict:
         return self.index_service.api_update_generation_options(options)
 
@@ -51,6 +54,9 @@ class Api:
 
     def api_save_image(self, entry_id: int):
         return self.index_service.api_save_image(entry_id)
+
+    def api_copy_image(self, entry_id: int) -> dict:
+        return self.index_service.api_copy_image(entry_id)
 
     def api_get_image_base64(self, entry_id: int) -> str:
         return self.index_service.api_get_image_base64(entry_id)
