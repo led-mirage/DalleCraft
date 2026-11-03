@@ -25,5 +25,49 @@ class ConfigHtmlTest(unittest.TestCase):
         self.assertEqual(references - parser.ids, set())
 
 
+class IndexHtmlTest(unittest.TestCase):
+    def test_quick_setting_elements_exist(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+        parser = _IdCollector()
+        parser.feed(source)
+
+        self.assertIn("quick-image-size", parser.ids)
+        self.assertIn("quick-image-quality", parser.ids)
+        self.assertIn("current-api-type", parser.ids)
+        self.assertIn("prompt-input-container", parser.ids)
+        self.assertIn("input-image-preview", parser.ids)
+        self.assertIn("input-image-preview-img", parser.ids)
+        self.assertIn("remove-input-image-button", parser.ids)
+
+    def test_quick_quality_labels_are_english(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        for label in ("Auto", "Low", "Medium", "High", "XHigh", "Max"):
+            self.assertRegex(source, rf'<option value="[^"]+">{label}</option>')
+
+    def test_displays_current_api_type(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("initCurrentApiType(config.api_type)", source)
+        self.assertIn('openai: "OpenAI"', source)
+        self.assertIn('foundry: "Microsoft Foundry"', source)
+
+    def test_supports_paste_and_drop_input_images(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('prompt.addEventListener("paste", handleInputImagePaste)', source)
+        self.assertIn('container.addEventListener("drop", handleInputImageDrop)', source)
+        self.assertIn("file.size >= 20 * 1024 * 1024", source)
+        self.assertIn("result.resize_message", source)
+
+
 if __name__ == "__main__":
     unittest.main()

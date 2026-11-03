@@ -18,14 +18,26 @@ OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとG
 
 ## 💎 スクリーンショット
 
-<img src="doc/screenshot_2.0.0.png" width="550"><br>
+<img src="doc/screenshot_2.1.0.png" width="550"><br>
 <img src="doc/screenshot_2.0.0_settings.png" width="550"><br>
 
+### 🖼️ 作例
+
 <div class="page"/>
+<img src="doc/generated_image_2.1.0.png" width="550"><br>
 
 ## 💎 特徴
 
 このアプリはAIを使って手軽に高画質な画像を作りたい人、高性能なPCを持っていない人にとって便利なツールです。
+
+### 主な機能
+
+- テキストプロンプトからGPT Image 2.5による画像を生成
+- GPT Image 2.5 FlareとGPT Image 2.5 Sunburstを切り替えて利用可能
+- OpenAI APIとMicrosoft Foundryに対応
+- `Ctrl+V`またはドラッグ＆ドロップで参照画像を添付した画像生成に対応
+- メイン画面から解像度と画質を変更できるクイック設定
+- 生成画像と入力画像をセッションごとに保存し、過去の履歴を閲覧可能
 
 ### メリット
 
@@ -44,13 +56,13 @@ OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとG
 
 ### 📌 OpenAIを使用する場合
 
-- [OpenAI Platform](https://platform.openai.com/docs/overview)に登録し、APIキーを発行してください。
+- [OpenAI PlatformのAPIキー管理画面](https://platform.openai.com/api-keys)でAPIキーを作成してください。
 
 ### 📌 Microsoft Foundryを使用する場合
 
 - Microsoft Foundryリソースを作成し、APIキーとOpenAI v1推論エンドポイントを取得してください。
 - `gpt-image-2.5-flare`または`gpt-image-2.5-sunburst`をデプロイしてください。両方を切り替える場合は、それぞれのデプロイが必要です。
-- デプロイ可能なリージョンは[Microsoftの公式サイト](https://learn.microsoft.com/azure/ai-foundry/openai/concepts/models)でご確認ください。
+- デプロイ可能なリージョンは[Microsoftの公式サイト](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure-region-availability)でご確認ください。
 
 <div class="page"/>
 
@@ -109,9 +121,13 @@ python src/main.py
 
 ## 💎 GPT Image 2.5 APIの利用料金
 
-GPT Image API利用料金は[OpenAIの公式サイト](https://developers.openai.com/api/docs/pricing)でご確認ください。Microsoft Foundryを利用する場合は、[Microsoftの公式サイト](https://azure.microsoft.com/pricing/details/ai-foundry/)でご確認ください。
+GPT Image API利用料金は[OpenAIの公式サイト](https://developers.openai.com/api/docs/pricing)でご確認ください。Microsoft Foundryを利用する場合は、[Microsoftの公式サイト](https://azure.microsoft.com/en-us/pricing/details/microsoft-foundry/)でご確認ください。
 
 入力・画像出力トークン等に応じて課金され、モデル、画像サイズ、品質によって料金が異なります。
+
+参照画像を添付した場合、その画像は選択中のOpenAI APIまたはMicrosoft Foundryのエンドポイントへ送信され、入力画像にも料金が発生します。過大な料金を防ぐため、添付できる画像は20MB未満に制限し、長辺が2048pxを超える場合は送信前に自動縮小します。
+
+添付した画像はセッション履歴から再表示できるように、縮小後の画像をローカルの`logs/input-images`フォルダへ保存します。生成画像は`images`フォルダ、セッション情報は`logs`フォルダへ保存します。
 
 ## 💎 注意事項
 
@@ -123,9 +139,9 @@ GPT Image API利用料金は[OpenAIの公式サイト](https://developers.openai
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/a4c1b3cf1a7b2f502bc57ae207db8334e8d8b35ad8f75af9cdde74c60cd98c1f/detection)で確認できます（2026/11/03 v2.0.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/ba093ea592e1f787fb5dcc78a96b845d2a5abf195a40ff46874eda0e4f16cc30/detection)で確認できます（2026/11/03 v2.1.0）
 
-72個中2個のアンチウィルスエンジンで検出
+70個中2個のアンチウィルスエンジンで検出
 
 <div class="page"/>
 
@@ -154,7 +170,7 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 ライセンス： GPL 2.0 License / Apache License 2.0  
 
 ### 🔖 pyinstaller-versionfile 3.1.0
-ホームページ： https://github.com/pyinstaller/pyinstaller-versionfile<br>
+ホームページ： https://github.com/DudeNr33/pyinstaller-versionfile<br>
 ライセンス： MIT License
 
 ### 🔖 PyYAML 6.0.3
@@ -170,6 +186,14 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 <div class="page"/>
 
 ## 💎 バージョン履歴
+
+### 2.1.0 (2026/11/03)
+
+- 解像度と画質をメイン画面から変更できるクイック設定を追加
+- `Ctrl+V`またはドラッグ＆ドロップによる入力画像の添付に対応
+- 参照画像を添付した画像生成と、セッション履歴への入力画像の保存・表示に対応
+- 入力画像に20MBの容量制限と、長辺2048pxを上限とする自動縮小処理を追加
+- メイン画面に現在使用中のAPI種別を表示
 
 ### 2.0.0 (2026/11/03)
 

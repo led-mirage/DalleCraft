@@ -62,9 +62,36 @@
         </div>
         -->
     </div>
-    <div class="prompt-area">
-        <textarea id="prompt" placeholder="プロンプトを入力..."></textarea>
-        <button id="submit-button" type="button" onclick="genImage()">画像生成</button>
+    <div class="prompt-panel">
+        <div class="quick-settings" aria-label="画像生成のクイック設定">
+            <label for="quick-image-size">解像度</label>
+            <select id="quick-image-size" onchange="saveQuickSettings()">
+                <option value="auto">自動</option>
+                <option value="1024x1024">1024 × 1024</option>
+                <option value="1536x1024">1536 × 1024（横長）</option>
+                <option value="1024x1536">1024 × 1536（縦長）</option>
+            </select>
+            <label for="quick-image-quality">品質</label>
+            <select id="quick-image-quality" onchange="saveQuickSettings()">
+                <option value="auto">Auto</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="xhigh">XHigh</option>
+                <option value="max">Max</option>
+            </select>
+            <span id="current-api-type" class="api-type-indicator" title="現在使用中のAPI"></span>
+        </div>
+        <div class="prompt-area">
+            <div id="prompt-input-container" class="prompt-input-container">
+                <div id="input-image-preview" class="input-image-preview" hidden>
+                    <img id="input-image-preview-img" alt="貼り付けた入力画像">
+                    <button id="remove-input-image-button" type="button" aria-label="貼り付けた画像を削除">&times;</button>
+                </div>
+                <textarea id="prompt" placeholder="プロンプトを入力...（Ctrl+Vまたはドラッグ＆ドロップで画像を貼り付け）"></textarea>
+            </div>
+            <button id="submit-button" type="button" onclick="genImage()">画像生成</button>
+        </div>
     </div>
     <footer><span id="copyright">Copyright</span></footer>
 </div>
@@ -94,6 +121,7 @@
                 <tr><td>モデル名</td><td><span id="image-info-model-name"></span></td></tr>
                 <tr><td>解像度</td><td><span id="image-info-size"></span></td></tr>
                 <tr><td>画質</td><td><span id="image-info-quality"></span></td></tr>
+                <tr><td>入力画像</td><td><span id="image-info-input-images"></span></td></tr>
                 <tr><td>生成にかかった時間</td><td><span id="image-info-elapsed-time"></span></td></tr>
                 <tr><td>プロンプト</td><td><div id="image-info-prompt"></div></td></tr>
                 <tr><td>改訂版プロンプト</td><td><div id="image-info-revised-prompt"></div></td></tr>
@@ -103,12 +131,15 @@
 </div>
 
 <script>
+let pendingInputImage = null;
+
 // DOM初期化
 document.addEventListener("DOMContentLoaded", function() {
     document.addEventListener("contextmenu", handleContextMenu);
 
     initImageModal();
     initImageInfoModal();
+    initInputImageHandlers();
 });
 
 // pywebview初期化
@@ -145,6 +176,20 @@ function initImageModal() {
     });
 }
 
+function showImageModal(src, entryId, imageKind) {
+    const modal = document.getElementById("image-modal");
+    const modalImg = document.getElementById("image-modal-img");
+    modalImg.src = src;
+    modalImg.dataset.kind = imageKind || "output";
+    if (entryId === null || entryId === undefined) {
+        delete modalImg.dataset.entryId;
+    }
+    else {
+        modalImg.dataset.entryId = entryId;
+    }
+    modal.style.display = "block";
+}
+
 // 画像情報モーダル初期化
 function initImageInfoModal() {
     const modal = document.getElementById("image-info-modal");
@@ -157,11 +202,231 @@ function initImageInfoModal() {
 
 // コンポーネント初期化
 async function initComponents() {
-    const info = await pywebview.api.api_get_app_info();
+    const [info, config] = await Promise.all([
+        pywebview.api.api_get_app_info(),
+        pywebview.api.api_get_config()
+    ]);
     footer = document.getElementById("copyright");
     if (footer) {
         footer.textContent = info.copyright;
     }
+    initQuickSettings(config.model);
+    initCurrentApiType(config.api_type);
+}
+
+// 現在使用中のAPI種別を表示する
+function initCurrentApiType(apiType) {
+    const indicator = document.getElementById("current-api-type");
+    const labels = {
+        openai: "OpenAI",
+        foundry: "Microsoft Foundry"
+    };
+    indicator.textContent = "API: " + (labels[apiType] || apiType || "-");
+}
+
+// クイック設定を現在の設定値で初期化する
+function initQuickSettings(modelConfig) {
+    const sizeSelect = document.getElementById("quick-image-size");
+    const qualitySelect = document.getElementById("quick-image-quality");
+    const size = modelConfig && modelConfig.size ? modelConfig.size : "auto";
+    const quality = modelConfig && modelConfig.quality ? modelConfig.quality : "auto";
+
+    sizeSelect.value = Array.from(sizeSelect.options).some(option => option.value === size) ? size : "auto";
+    qualitySelect.value = Array.from(qualitySelect.options).some(option => option.value === quality) ? quality : "auto";
+}
+
+// クイック設定で選択されている生成オプションを取得する
+function getQuickSettings() {
+    const options = {
+        size: document.getElementById("quick-image-size").value,
+        quality: document.getElementById("quick-image-quality").value
+    };
+    if (pendingInputImage) {
+        options.input_image_id = pendingInputImage.input_image_id;
+    }
+    return options;
+}
+
+// クイック設定を保存する
+async function saveQuickSettings() {
+    const result = await pywebview.api.api_update_generation_options(getQuickSettings());
+    if (!result.success) {
+        alert(result.error_info);
+        const config = await pywebview.api.api_get_config();
+        initQuickSettings(config.model);
+    }
+}
+
+// クリップボード貼り付けとドラッグ＆ドロップを初期化する
+function initInputImageHandlers() {
+    const prompt = document.getElementById("prompt");
+    const container = document.getElementById("prompt-input-container");
+    const preview = document.getElementById("input-image-preview-img");
+    const removeButton = document.getElementById("remove-input-image-button");
+
+    prompt.addEventListener("paste", handleInputImagePaste);
+    container.addEventListener("dragenter", function(event) {
+        if (hasDraggedFiles(event)) {
+            event.preventDefault();
+            container.classList.add("drag-active");
+        }
+    });
+    container.addEventListener("dragover", function(event) {
+        if (hasDraggedFiles(event)) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+            container.classList.add("drag-active");
+        }
+    });
+    container.addEventListener("dragleave", function(event) {
+        if (!container.contains(event.relatedTarget)) {
+            container.classList.remove("drag-active");
+        }
+    });
+    container.addEventListener("drop", handleInputImageDrop);
+
+    // ウィンドウへのファイルドロップでブラウザがファイルを開くのを防ぐ
+    document.addEventListener("dragover", function(event) {
+        if (hasDraggedFiles(event)) event.preventDefault();
+    });
+    document.addEventListener("drop", function(event) {
+        if (hasDraggedFiles(event) && !container.contains(event.target)) {
+            event.preventDefault();
+            container.classList.remove("drag-active");
+        }
+    });
+
+    removeButton.addEventListener("click", function(event) {
+        event.stopPropagation();
+        clearInputImage(true);
+    });
+    preview.addEventListener("click", showPendingInputImage);
+}
+
+function hasDraggedFiles(event) {
+    return event.dataTransfer && Array.from(event.dataTransfer.types || []).includes("Files");
+}
+
+async function handleInputImagePaste(event) {
+    const imageItem = Array.from(event.clipboardData.items || []).find(
+        item => item.kind === "file" && item.type.startsWith("image/")
+    );
+    if (!imageItem) return;
+
+    event.preventDefault();
+    const imageFile = imageItem.getAsFile();
+    if (imageFile) {
+        await registerInputImage(imageFile, "clipboard");
+    }
+}
+
+async function handleInputImageDrop(event) {
+    const container = document.getElementById("prompt-input-container");
+    container.classList.remove("drag-active");
+    if (!hasDraggedFiles(event)) return;
+
+    event.preventDefault();
+    const files = Array.from(event.dataTransfer.files || []);
+    const imageFiles = files.filter(isSupportedInputImageFile);
+    if (files.length !== 1 || imageFiles.length !== 1) {
+        alert("PNG、JPEG、WebP形式の画像を1枚だけドロップしてください。");
+        return;
+    }
+    await registerInputImage(imageFiles[0], "drop");
+}
+
+function isSupportedInputImageFile(file) {
+    const supportedTypes = ["image/png", "image/jpeg", "image/webp"];
+    return supportedTypes.includes(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name || "");
+}
+
+function getClipboardImageFilename(file) {
+    if (file.type === "image/jpeg") return "pasted-image.jpg";
+    if (file.type === "image/webp") return "pasted-image.webp";
+    return "pasted-image.png";
+}
+
+function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("画像を読み込めませんでした。"));
+        reader.readAsDataURL(file);
+    });
+}
+
+async function registerInputImage(file, source) {
+    if (!isSupportedInputImageFile(file)) {
+        alert("PNG、JPEG、WebP形式の画像を貼り付けてください。");
+        return;
+    }
+    if (file.size >= 20 * 1024 * 1024) {
+        alert("貼り付け画像は20MB未満にしてください。");
+        return;
+    }
+
+    try {
+        const dataUrl = await readFileAsDataUrl(file);
+        const result = await pywebview.api.api_register_input_image({
+            filename: source === "clipboard" ? getClipboardImageFilename(file) : file.name,
+            mime_type: file.type,
+            source: source,
+            image_base64: dataUrl
+        });
+        if (!result.success) {
+            alert(result.error_info);
+            return;
+        }
+
+        const previousImage = pendingInputImage;
+        pendingInputImage = result;
+        showInputImagePreview(result);
+        if (result.resize_message) {
+            alert(result.resize_message);
+        }
+        if (previousImage) {
+            await pywebview.api.api_release_input_image(previousImage.input_image_id);
+        }
+    }
+    catch (error) {
+        alert(error.message || String(error));
+    }
+}
+
+function showInputImagePreview(image) {
+    const previewContainer = document.getElementById("input-image-preview");
+    const preview = document.getElementById("input-image-preview-img");
+    preview.src = "data:image/png;base64," + image.preview_base64;
+    preview.title = image.resize_message
+        ? image.filename + "\n" + image.resize_message
+        : image.filename;
+    previewContainer.hidden = false;
+}
+
+async function clearInputImage(releaseOnBackend) {
+    const image = pendingInputImage;
+    pendingInputImage = null;
+    const previewContainer = document.getElementById("input-image-preview");
+    const preview = document.getElementById("input-image-preview-img");
+    previewContainer.hidden = true;
+    preview.removeAttribute("src");
+    preview.removeAttribute("title");
+    if (releaseOnBackend && image) {
+        await pywebview.api.api_release_input_image(image.input_image_id);
+    }
+}
+
+async function showPendingInputImage() {
+    if (!pendingInputImage) return;
+    const imageBase64 = await pywebview.api.api_get_pending_input_image_base64(
+        pendingInputImage.input_image_id
+    );
+    if (!imageBase64) return;
+    showImageModal(
+        "data:" + pendingInputImage.mime_type + ";base64," + imageBase64,
+        null,
+        "input"
+    );
 }
 
 // Welcomeメッセージブロックを追加する
@@ -203,6 +468,7 @@ function handleContextMenu(event) {
     const target = event.target;
 
     if (target.tagName !== "IMG") return;
+    if (target.dataset.kind === "input" || target.classList.contains("input-reference-image")) return;
     const inModal = target.parentElement.id == "image-modal";
 
     event.preventDefault();
@@ -261,7 +527,8 @@ function handleContextMenu(event) {
             document.body.removeChild(menu);
             // 少しタイミングを遅らせないとメニューが消えない
             setTimeout(function() {
-                const prompt = target.parentElement.previousElementSibling.innerText;
+                const promptElement = target.parentElement.previousElementSibling;
+                const prompt = promptElement.dataset.prompt || promptElement.innerText;
                 document.getElementById("prompt").value = prompt;
                 genImage();
             }, 100);
@@ -307,23 +574,32 @@ async function genImage() {
 
     showProgressModal("画像生成中...");
 
-    entry = await pywebview.api.api_gen_image(prompt);
+    try {
+        const entry = await pywebview.api.api_gen_image(prompt, getQuickSettings());
+        if (entry.id === undefined) {
+            alert(entry.error_info || "画像を生成できませんでした。");
+            return;
+        }
 
-    addCard(entry.id, prompt);
-    if (entry.success) {
-        addImage(entry);
+        addCard(entry.id, prompt, entry.input_images || []);
+        if (entry.success) {
+            addImage(entry);
+            if (pendingInputImage) {
+                await clearInputImage(false);
+            }
+        }
+        else {
+            addErrorInfo(entry.error_info);
+        }
+        scrollToBottom();
     }
-    else {
-        addErrorInfo(entry.error_info);
+    finally {
+        hideProgressModal();
     }
-
-    scrollToBottom();
-
-    hideProgressModal();
 }
 
 // カードを追加する
-function addCard(id, prompt) {
+function addCard(id, prompt, inputImages = []) {
     // コンテナを取得
     const container = document.getElementById("dalle-session");
 
@@ -341,7 +617,48 @@ function addCard(id, prompt) {
     // プロンプトを表示する要素を作成
     const promptElm = document.createElement("div");
     promptElm.classList.add("prompt");
-    promptElm.innerHTML = escapeHtml(prompt);
+    promptElm.dataset.prompt = prompt;
+
+    if (inputImages.length > 0) {
+        const inputImage = inputImages[0];
+        const reference = document.createElement("div");
+        reference.className = "input-reference";
+        reference.title = inputImage.original_name || "入力画像";
+
+        const badge = document.createElement("span");
+        badge.className = "input-reference-badge";
+        badge.textContent = "入力";
+
+        const image = document.createElement("img");
+        image.className = "input-reference-image";
+        image.dataset.kind = "input";
+        image.dataset.entryId = id;
+        image.dataset.imageIndex = "0";
+        if (inputImage.thumbnail_base64) {
+            image.src = "data:image/png;base64," + inputImage.thumbnail_base64;
+        }
+        image.addEventListener("click", async function() {
+            const imageBase64 = await pywebview.api.api_get_input_image_base64(
+                parseInt(this.dataset.entryId),
+                parseInt(this.dataset.imageIndex)
+            );
+            if (imageBase64) {
+                showImageModal(
+                    "data:" + (inputImage.mime_type || "image/png") + ";base64," + imageBase64,
+                    parseInt(this.dataset.entryId),
+                    "input"
+                );
+            }
+        });
+        reference.appendChild(image);
+        reference.appendChild(badge);
+        promptElm.appendChild(reference);
+    }
+
+    const promptText = document.createElement("div");
+    promptText.className = "prompt-text";
+    promptText.innerHTML = escapeHtml(prompt);
+    promptElm.appendChild(promptText);
 
     // カードにプロンプト要素を追加
     card.appendChild(promptElm);
@@ -363,12 +680,14 @@ function addImage(entry) {
     const img = document.createElement('img');
     img.src = "data:image/png;base64," + entry.image_base64;
     img.dataset.entryId = entry.id;
+    img.dataset.kind = "output";
     img.addEventListener("click", async function() {
-        const modal = document.getElementById("image-modal");
-        const modalImg = document.getElementById('image-modal-img');
-        modalImg.src = "data:image/png;base64," + await pywebview.api.api_get_image_base64(parseInt(this.dataset.entryId));
-        modalImg.dataset.entryId = this.dataset.entryId;
-        modal.style.display = "block";
+        const imageBase64 = await pywebview.api.api_get_image_base64(parseInt(this.dataset.entryId));
+        showImageModal(
+            "data:image/png;base64," + imageBase64,
+            parseInt(this.dataset.entryId),
+            "output"
+        );
     });
     // 画像領域に画像を追加
     imageDiv.appendChild(img);
@@ -496,6 +815,10 @@ async function showImageInfoModal(cardId) {
         imageSize.textContent = info.image_size;
         const imageQuality = document.getElementById("image-info-quality");
         imageQuality.textContent = info.image_quality;
+        const inputImages = document.getElementById("image-info-input-images");
+        inputImages.textContent = info.input_images.length > 0
+            ? info.input_images.map(image => image.original_name).join(", ")
+            : "なし";
         const imageElapsedTime = document.getElementById("image-info-elapsed-time");
         imageElapsedTime.textContent = info.elapsed_time.toFixed(2) + "秒";
         const prompt = document.getElementById("image-info-prompt");
@@ -546,7 +869,7 @@ function setSessionName(name) {
 
 // セッションビューにエントリー（カード）を追加する
 function addEntry(entry) {
-    addCard(entry.id, entry.prompt);
+    addCard(entry.id, entry.prompt, entry.input_images || []);
     if (entry.success) {
         addImage(entry);
     }

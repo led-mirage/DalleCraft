@@ -72,3 +72,28 @@ class GPTImageClient:
         # so existing session log files remain compatible.
         revised_prompt = getattr(image, "revised_prompt", None) or ""
         return image.b64_json, revised_prompt
+
+    def edit_image(
+        self,
+        prompt: str,
+        image_path: str,
+        size: str = IMAGE_SIZE_AUTO,
+        quality: str = IMAGE_QUALITY_AUTO,
+    ) -> tuple[str, str]:
+        with open(image_path, "rb") as input_image:
+            response = self.client.images.edit(
+                model=self.model,
+                image=input_image,
+                prompt=prompt,
+                size=size,
+                quality=quality,
+                output_format="png",
+                n=1,
+            )
+
+        image = response.data[0]
+        if not image.b64_json:
+            raise ValueError("画像編集APIから画像データが返されませんでした。")
+
+        revised_prompt = getattr(image, "revised_prompt", None) or ""
+        return image.b64_json, revised_prompt
