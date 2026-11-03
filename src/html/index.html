@@ -105,7 +105,10 @@
 <!-- 画像表示モーダル -->
 <div id="image-modal" class="modal-background">
     <span class="image-modal-close">&times;</span>
-    <img class="image-modal-content" id="image-modal-img">
+    <div id="image-modal-viewport" class="image-modal-viewport">
+        <img class="image-modal-content" id="image-modal-img" draggable="false">
+    </div>
+    <div class="image-modal-help">ホイール: ズーム　ドラッグ: 移動　ダブルクリック: リセット</div>
 </div>
 <!-- 画像情報モーダル -->
 <div id="image-info-modal" class="modal-background">
@@ -132,6 +135,16 @@
 
 <script>
 let pendingInputImage = null;
+const imageModalView = {
+    scale: 1,
+    x: 0,
+    y: 0,
+    dragging: false,
+    dragStartX: 0,
+    dragStartY: 0,
+    startX: 0,
+    startY: 0
+};
 
 // DOM初期化
 document.addEventListener("DOMContentLoaded", function() {
@@ -158,27 +171,107 @@ function rem2px(rem) {
 // 画像表示モーダル初期化
 function initImageModal() {
     const modal = document.getElementById("image-modal");
+    const viewport = document.getElementById("image-modal-viewport");
+    const modalImg = document.getElementById("image-modal-img");
     const span = document.getElementsByClassName("image-modal-close")[0];
-    span.onclick = function() {
-        modal.style.display = "none";
-    };
+    span.onclick = hideImageModal;
 
     window.onclick = function(event) {
-        if (event.target === modal) {
-            modal.style.display = "none";
+        if (event.target === modal || event.target === viewport) {
+            hideImageModal();
         }
     };
 
     document.addEventListener('keydown', function(event) {
         if (event.key === "Escape" && modal.style.display === "block") {
-            modal.style.display = "none";
+            hideImageModal();
         }
     });
+
+    viewport.addEventListener("wheel", function(event) {
+        if (modal.style.display !== "block") return;
+        event.preventDefault();
+
+        const oldScale = imageModalView.scale;
+        const zoomFactor = event.deltaY < 0 ? 1.15 : 1 / 1.15;
+        const newScale = Math.min(8, Math.max(1, oldScale * zoomFactor));
+        if (newScale === oldScale) return;
+
+        const viewportRect = viewport.getBoundingClientRect();
+        const pointerX = event.clientX - (viewportRect.left + viewportRect.width / 2);
+        const pointerY = event.clientY - (viewportRect.top + viewportRect.height / 2);
+        const scaleRatio = newScale / oldScale;
+        imageModalView.x = pointerX - (pointerX - imageModalView.x) * scaleRatio;
+        imageModalView.y = pointerY - (pointerY - imageModalView.y) * scaleRatio;
+        imageModalView.scale = newScale;
+        clampImageModalPosition();
+        updateImageModalTransform();
+    }, { passive: false });
+
+    modalImg.addEventListener("mousedown", function(event) {
+        if (event.button !== 0 || imageModalView.scale <= 1) return;
+        event.preventDefault();
+        imageModalView.dragging = true;
+        imageModalView.dragStartX = event.clientX;
+        imageModalView.dragStartY = event.clientY;
+        imageModalView.startX = imageModalView.x;
+        imageModalView.startY = imageModalView.y;
+        modalImg.classList.add("dragging");
+    });
+
+    document.addEventListener("mousemove", function(event) {
+        if (!imageModalView.dragging) return;
+        imageModalView.x = imageModalView.startX + event.clientX - imageModalView.dragStartX;
+        imageModalView.y = imageModalView.startY + event.clientY - imageModalView.dragStartY;
+        clampImageModalPosition();
+        updateImageModalTransform();
+    });
+
+    document.addEventListener("mouseup", function() {
+        if (!imageModalView.dragging) return;
+        imageModalView.dragging = false;
+        modalImg.classList.remove("dragging");
+    });
+
+    modalImg.addEventListener("dblclick", function(event) {
+        event.preventDefault();
+        resetImageModalView();
+    });
+}
+
+function updateImageModalTransform() {
+    const modalImg = document.getElementById("image-modal-img");
+    modalImg.style.transform = `translate(${imageModalView.x}px, ${imageModalView.y}px) scale(${imageModalView.scale})`;
+    modalImg.classList.toggle("zoomed", imageModalView.scale > 1);
+}
+
+function clampImageModalPosition() {
+    const viewport = document.getElementById("image-modal-viewport");
+    const modalImg = document.getElementById("image-modal-img");
+    const maxX = Math.max(0, (modalImg.clientWidth * imageModalView.scale - viewport.clientWidth) / 2);
+    const maxY = Math.max(0, (modalImg.clientHeight * imageModalView.scale - viewport.clientHeight) / 2);
+    imageModalView.x = Math.min(maxX, Math.max(-maxX, imageModalView.x));
+    imageModalView.y = Math.min(maxY, Math.max(-maxY, imageModalView.y));
+}
+
+function resetImageModalView() {
+    imageModalView.scale = 1;
+    imageModalView.x = 0;
+    imageModalView.y = 0;
+    imageModalView.dragging = false;
+    document.getElementById("image-modal-img").classList.remove("dragging");
+    updateImageModalTransform();
+}
+
+function hideImageModal() {
+    document.getElementById("image-modal").style.display = "none";
+    resetImageModalView();
 }
 
 function showImageModal(src, entryId, imageKind) {
     const modal = document.getElementById("image-modal");
     const modalImg = document.getElementById("image-modal-img");
+    resetImageModalView();
     modalImg.src = src;
     modalImg.dataset.kind = imageKind || "output";
     if (entryId === null || entryId === undefined) {
@@ -469,7 +562,7 @@ function handleContextMenu(event) {
 
     if (target.tagName !== "IMG") return;
     if (target.dataset.kind === "input" || target.classList.contains("input-reference-image")) return;
-    const inModal = target.parentElement.id == "image-modal";
+    const inModal = Boolean(target.closest("#image-modal"));
 
     event.preventDefault();
 
@@ -480,6 +573,7 @@ function handleContextMenu(event) {
     }
 
     let menuContent = "";
+    menuContent += `<button id="copy-image"><i class="fa-regular fa-copy"></i>　画像をコピー</button><br>`;
     menuContent += `<button id="saveas"><i class="fa-regular fa-floppy-disk"></i>　名前を付けて保存</button><br>`;
     if (!inModal) {
         menuContent += `<button id="regenerate"><i class="fa-solid fa-repeat"></i>　同じプロンプトで再作成</button><br>`;
@@ -508,6 +602,15 @@ function handleContextMenu(event) {
     menu.style.top = `${yPos}px`;
     menu.style.visibility = "visible";
 
+    // 画像をクリップボードにコピー
+    const copyImageButton = document.getElementById("copy-image");
+    if (copyImageButton) {
+        copyImageButton.addEventListener("click", function() {
+            document.body.removeChild(menu);
+            copyImage(parseInt(target.dataset.entryId));
+        });
+    }
+
     // 名前を付けて保存
     const saveasButton = document.getElementById("saveas");
     if (saveasButton) {
@@ -530,7 +633,7 @@ function handleContextMenu(event) {
                 const promptElement = target.parentElement.previousElementSibling;
                 const prompt = promptElement.dataset.prompt || promptElement.innerText;
                 document.getElementById("prompt").value = prompt;
-                genImage();
+                regenerateImage(parseInt(target.dataset.entryId));
             }, 100);
         });
     }
@@ -576,26 +679,44 @@ async function genImage() {
 
     try {
         const entry = await pywebview.api.api_gen_image(prompt, getQuickSettings());
-        if (entry.id === undefined) {
-            alert(entry.error_info || "画像を生成できませんでした。");
-            return;
-        }
-
-        addCard(entry.id, prompt, entry.input_images || []);
-        if (entry.success) {
-            addImage(entry);
-            if (pendingInputImage) {
-                await clearInputImage(false);
-            }
-        }
-        else {
-            addErrorInfo(entry.error_info);
-        }
-        scrollToBottom();
+        await displayGenerationResult(entry, prompt, true);
     }
     finally {
         hideProgressModal();
     }
+}
+
+// 元のプロンプトと参照画像を使って画像を再作成する
+async function regenerateImage(entryId) {
+    showProgressModal("画像生成中...");
+
+    try {
+        const entry = await pywebview.api.api_regenerate_image(entryId, getQuickSettings());
+        await displayGenerationResult(entry, "", false);
+    }
+    finally {
+        hideProgressModal();
+    }
+}
+
+// 生成結果をセッション表示へ追加する
+async function displayGenerationResult(entry, fallbackPrompt, clearPendingOnSuccess) {
+    if (entry.id === undefined) {
+        alert(entry.error_info || "画像を生成できませんでした。");
+        return;
+    }
+
+    addCard(entry.id, entry.prompt || fallbackPrompt, entry.input_images || []);
+    if (entry.success) {
+        addImage(entry);
+        if (clearPendingOnSuccess && pendingInputImage) {
+            await clearInputImage(false);
+        }
+    }
+    else {
+        addErrorInfo(entry.error_info);
+    }
+    scrollToBottom();
 }
 
 // カードを追加する
@@ -739,6 +860,27 @@ async function deleteCard(cardId) {
 // 名前を付けて画像を保存する
 async function saveImage(cardId) {
     await pywebview.api.api_save_image(cardId);
+}
+
+// 画像をクリップボードにコピーする
+async function copyImage(cardId) {
+    const result = await pywebview.api.api_copy_image(cardId);
+    if (result.success) {
+        showToast("画像をクリップボードにコピーしました");
+    }
+    else {
+        alert(result.error_info || "画像をクリップボードにコピーできませんでした。");
+    }
+}
+
+// 一時的な通知を表示する
+function showToast(message) {
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.setAttribute("role", "status");
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
 }
 
 // 前のセッションを表示する
