@@ -14,7 +14,7 @@ from datetime import datetime
 import openai
 from PIL import Image
 
-from app_const import APP_NAME, IMAGE_DIR
+from app_const import APP_NAME, CONFIG_FILE, IMAGE_DIR
 from app_window import AppWindow
 from config import Config
 from dalle import GPTImageClient
@@ -23,20 +23,65 @@ from generation_logger import ImageGenerationLogger
 
 
 class IndexService:
+    VALID_IMAGE_SIZES = {
+        "auto",
+        "1024x1024",
+        "1536x1024",
+        "1024x1536",
+    }
+    VALID_IMAGE_QUALITIES = {
+        "auto",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+    }
+
     def __init__(self, window: AppWindow, config: Config, session_manager: SessionManager):
         self.window = window
         self.config = config
         self.session_manager = session_manager
 
-    def gen_image(self, prompt: str) -> tuple[str, str, float]:
+    def gen_image(
+        self,
+        prompt: str,
+        size: str | None = None,
+        quality: str | None = None,
+    ) -> tuple[str, str, float]:
         start_time = time.time()
         image_client = self.create_image_client()
 
-        size, quality = self.config.get_model_param()
+        configured_size, configured_quality = self.config.get_model_param()
+        size = configured_size if size is None else size
+        quality = configured_quality if quality is None else quality
         image_b64, revised_prompt = image_client.gen_image(prompt, size=size, quality=quality)
 
         elapsed_time = time.time() - start_time
         return image_b64, revised_prompt, elapsed_time
+
+    def resolve_generation_options(self, options: dict | None = None) -> tuple[str, str]:
+        configured_size, configured_quality = self.config.get_model_param()
+        if options is None:
+            return configured_size, configured_quality
+        if not isinstance(options, dict):
+            raise ValueError("生成オプションの形式が正しくありません。")
+
+        size = options.get("size", configured_size)
+        quality = options.get("quality", configured_quality)
+        if size not in self.VALID_IMAGE_SIZES:
+            raise ValueError(f"未対応の解像度です: {size}")
+        if quality not in self.VALID_IMAGE_QUALITIES:
+            raise ValueError(f"未対応の品質です: {quality}")
+        return size, quality
+
+    def update_generation_options(self, size: str, quality: str) -> bool:
+        if self.config.get_model_param() == (size, quality):
+            return False
+        self.config.model["size"] = size
+        self.config.model["quality"] = quality
+        self.config.save(CONFIG_FILE)
+        return True
 
     def create_image_client(self) -> GPTImageClient:
         model_name = self.config.get_model_name()
@@ -107,14 +152,33 @@ class IndexService:
         if len(session.entries) > 0:
             self.refresh_view(session)
 
-    def api_gen_image(self, prompt: str) -> dict:
+    def api_update_generation_options(self, options: dict) -> dict:
+        try:
+            image_size, image_quality = self.resolve_generation_options(options)
+            self.update_generation_options(image_size, image_quality)
+            return {
+                "success": True,
+                "size": image_size,
+                "quality": image_quality,
+            }
+        except (TypeError, ValueError) as e:
+            return {"success": False, "error_info": str(e)}
+
+    def api_gen_image(self, prompt: str, options: dict | None = None) -> dict:
         api_type = self.config.api_type
         model_name = self.config.get_model_name()
+        image_size, image_quality = self.config.get_model_param()
         try:
-            image_b64, revised_prompt, elapsed_time = self.gen_image(prompt)
+            image_size, image_quality = self.resolve_generation_options(options)
+            if options is not None:
+                self.update_generation_options(image_size, image_quality)
+            image_b64, revised_prompt, elapsed_time = self.gen_image(
+                prompt,
+                size=image_size,
+                quality=image_quality,
+            )
             image_path = self.save_image(image_b64)
             image_filename = os.path.basename(image_path)
-            image_size, image_quality = self.config.get_model_param()
             thumbnail_path = self.save_resized_image(image_path)
             thumbnail_filename = os.path.basename(thumbnail_path)
             entry = SessionEntry(prompt, revised_prompt, api_type, model_name, image_size, image_quality, True, elapsed_time, image_filename, thumbnail_filename)
@@ -126,7 +190,6 @@ class IndexService:
             dict["image_base64"] = image_b64
             return dict
         except openai.BadRequestError as e:
-            image_size, image_quality = self.config.get_model_param()
             entry = SessionEntry(prompt, "", api_type, model_name, image_size, image_quality, False, 0.0, "", "", str(e))
             session = self.session_manager.get_current_session()
             session.add_entry(entry)

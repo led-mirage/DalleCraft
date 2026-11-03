@@ -62,9 +62,29 @@
         </div>
         -->
     </div>
-    <div class="prompt-area">
-        <textarea id="prompt" placeholder="プロンプトを入力..."></textarea>
-        <button id="submit-button" type="button" onclick="genImage()">画像生成</button>
+    <div class="prompt-panel">
+        <div class="quick-settings" aria-label="画像生成のクイック設定">
+            <label for="quick-image-size">解像度</label>
+            <select id="quick-image-size" onchange="saveQuickSettings()">
+                <option value="auto">自動</option>
+                <option value="1024x1024">1024 × 1024</option>
+                <option value="1536x1024">1536 × 1024（横長）</option>
+                <option value="1024x1536">1024 × 1536（縦長）</option>
+            </select>
+            <label for="quick-image-quality">品質</label>
+            <select id="quick-image-quality" onchange="saveQuickSettings()">
+                <option value="auto">Auto</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="xhigh">XHigh</option>
+                <option value="max">Max</option>
+            </select>
+        </div>
+        <div class="prompt-area">
+            <textarea id="prompt" placeholder="プロンプトを入力..."></textarea>
+            <button id="submit-button" type="button" onclick="genImage()">画像生成</button>
+        </div>
     </div>
     <footer><span id="copyright">Copyright</span></footer>
 </div>
@@ -157,10 +177,43 @@ function initImageInfoModal() {
 
 // コンポーネント初期化
 async function initComponents() {
-    const info = await pywebview.api.api_get_app_info();
+    const [info, config] = await Promise.all([
+        pywebview.api.api_get_app_info(),
+        pywebview.api.api_get_config()
+    ]);
     footer = document.getElementById("copyright");
     if (footer) {
         footer.textContent = info.copyright;
+    }
+    initQuickSettings(config.model);
+}
+
+// クイック設定を現在の設定値で初期化する
+function initQuickSettings(modelConfig) {
+    const sizeSelect = document.getElementById("quick-image-size");
+    const qualitySelect = document.getElementById("quick-image-quality");
+    const size = modelConfig && modelConfig.size ? modelConfig.size : "auto";
+    const quality = modelConfig && modelConfig.quality ? modelConfig.quality : "auto";
+
+    sizeSelect.value = Array.from(sizeSelect.options).some(option => option.value === size) ? size : "auto";
+    qualitySelect.value = Array.from(qualitySelect.options).some(option => option.value === quality) ? quality : "auto";
+}
+
+// クイック設定で選択されている生成オプションを取得する
+function getQuickSettings() {
+    return {
+        size: document.getElementById("quick-image-size").value,
+        quality: document.getElementById("quick-image-quality").value
+    };
+}
+
+// クイック設定を保存する
+async function saveQuickSettings() {
+    const result = await pywebview.api.api_update_generation_options(getQuickSettings());
+    if (!result.success) {
+        alert(result.error_info);
+        const config = await pywebview.api.api_get_config();
+        initQuickSettings(config.model);
     }
 }
 
@@ -307,7 +360,7 @@ async function genImage() {
 
     showProgressModal("画像生成中...");
 
-    entry = await pywebview.api.api_gen_image(prompt);
+    const entry = await pywebview.api.api_gen_image(prompt, getQuickSettings());
 
     addCard(entry.id, prompt);
     if (entry.success) {

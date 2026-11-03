@@ -34,8 +34,11 @@ class Api:
     def api_refresh_index_view(self):
         return self.index_service.api_refresh_index_view()
 
-    def api_gen_image(self, prompt: str) -> dict:
-        return self.index_service.api_gen_image(prompt)
+    def api_gen_image(self, prompt: str, options: dict | None = None) -> dict:
+        return self.index_service.api_gen_image(prompt, options)
+
+    def api_update_generation_options(self, options: dict) -> dict:
+        return self.index_service.api_update_generation_options(options)
 
     def api_save_image(self, entry_id: int):
         return self.index_service.api_save_image(entry_id)

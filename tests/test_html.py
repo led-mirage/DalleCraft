@@ -25,5 +25,25 @@ class ConfigHtmlTest(unittest.TestCase):
         self.assertEqual(references - parser.ids, set())
 
 
+class IndexHtmlTest(unittest.TestCase):
+    def test_quick_setting_elements_exist(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+        parser = _IdCollector()
+        parser.feed(source)
+
+        self.assertIn("quick-image-size", parser.ids)
+        self.assertIn("quick-image-quality", parser.ids)
+
+    def test_quick_quality_labels_are_english(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        for label in ("Auto", "Low", "Medium", "High", "XHigh", "Max"):
+            self.assertRegex(source, rf'<option value="[^"]+">{label}</option>')
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -107,13 +107,45 @@ body, html {
     padding-left: 0.3rem;
     padding-right: 0.3rem;
 }
-.prompt-area {
+.prompt-panel {
     width: 100%;
-    display: flex;
-    padding: 10px;
     margin-bottom: 10px;
     background-color: #fff;
     box-sizing: border-box; /* パディングを含めた幅を100%に */
+}
+.quick-settings {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.4rem 10px 0;
+    color: #555;
+    font-size: 0.75rem;
+}
+.quick-settings label:not(:first-child) {
+    margin-left: 0.25rem;
+}
+.quick-settings select {
+    font: inherit;
+    color: #333;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 0.2rem 0.35rem;
+    cursor: pointer;
+}
+#quick-image-size {
+    width: 9rem;
+}
+#quick-image-quality {
+    width: 5rem;
+}
+.prompt-area {
+    width: 100%;
+    display: flex;
+    padding: 8px 10px 10px;
+    background-color: #fff;
+    box-sizing: border-box;
 }
 .prompt-area textarea {
     font-size: inherit;
@@ -542,7 +574,7 @@ pre {
     .chat-reanswer-btn {
         visibility: hidden;
     }
-    .prompt-area {
+    .prompt-panel {
         visibility: hidden;
     }
     footer {
