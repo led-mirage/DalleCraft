@@ -147,18 +147,70 @@ body, html {
     background-color: #fff;
     box-sizing: border-box;
 }
-.prompt-area textarea {
-    font-size: inherit;
-    font-family: inherit;
+.prompt-input-container {
     flex: 1;
-    padding: 1rem;
+    display: flex;
+    align-items: center;
+    min-width: 0;
     margin-right: 0.5rem;
     border: 1px solid #ccc;
     border-radius: 1rem;
+    background-color: #fff;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+.prompt-input-container.drag-active {
+    border-color: #007bff;
+    background-color: #eef6ff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.18);
+}
+.prompt-input-container textarea {
+    font-size: inherit;
+    font-family: inherit;
+    flex: 1;
+    min-width: 0;
+    padding: 1rem;
+    border: none;
+    outline: none;
+    background: transparent;
     resize: none; /* リサイズ無効 */
     height: 4rem; /* 高さの初期値、必要に応じて */
 }
-.prompt-area button {
+.input-image-preview {
+    position: relative;
+    flex: 0 0 4.5rem;
+    width: 4.5rem;
+    height: 4.5rem;
+    margin-left: 0.65rem;
+}
+.input-image-preview[hidden] {
+    display: none;
+}
+.input-image-preview img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    border-radius: 0.5rem;
+    cursor: pointer;
+}
+.input-image-preview button {
+    position: absolute;
+    top: 0.15rem;
+    right: 0.15rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    border: 1px solid #aaa;
+    border-radius: 50%;
+    color: #333;
+    background: #fff;
+    font-size: 1rem;
+    line-height: 1rem;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+.prompt-area > #submit-button {
     width: 8rem;
     font-size: 1rem;
     padding: 10px 20px;
@@ -170,10 +222,10 @@ body, html {
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     transition: all 0.3s ease;
 }
-.prompt-area button.submit-button-disabled {
+.prompt-area > #submit-button.submit-button-disabled {
     background-image: linear-gradient(to bottom, silver, gray);
 }
-.prompt-area button:hover {
+.prompt-area > #submit-button:hover {
     box-shadow: 0 6px 12px rgba(0,0,0,0.2);
     transform: scale(1.05);
 }
@@ -504,7 +556,49 @@ pre {
 }
 
 .prompt-image-card > .prompt {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     margin-bottom: 0.5rem;
+}
+
+.prompt-image-card .prompt-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.input-reference {
+    position: relative;
+    flex: 0 0 4rem;
+    width: 4rem;
+    height: 4rem;
+}
+
+.input-reference-image {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    border-radius: 0.35rem;
+    cursor: pointer;
+    transition: opacity 0.3s;
+}
+
+.input-reference-image:hover {
+    opacity: 0.8;
+}
+
+.input-reference-badge {
+    position: absolute;
+    left: 0.2rem;
+    bottom: 0.2rem;
+    padding: 0.1rem 0.25rem;
+    border-radius: 0.2rem;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.65);
+    font-size: 0.65rem;
+    line-height: 1;
+    pointer-events: none;
 }
 
 .prompt-image-card > .image > img {

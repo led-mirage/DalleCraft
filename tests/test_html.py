@@ -35,6 +35,10 @@ class IndexHtmlTest(unittest.TestCase):
 
         self.assertIn("quick-image-size", parser.ids)
         self.assertIn("quick-image-quality", parser.ids)
+        self.assertIn("prompt-input-container", parser.ids)
+        self.assertIn("input-image-preview", parser.ids)
+        self.assertIn("input-image-preview-img", parser.ids)
+        self.assertIn("remove-input-image-button", parser.ids)
 
     def test_quick_quality_labels_are_english(self):
         source = (
@@ -43,6 +47,16 @@ class IndexHtmlTest(unittest.TestCase):
 
         for label in ("Auto", "Low", "Medium", "High", "XHigh", "Max"):
             self.assertRegex(source, rf'<option value="[^"]+">{label}</option>')
+
+    def test_supports_paste_and_drop_input_images(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('prompt.addEventListener("paste", handleInputImagePaste)', source)
+        self.assertIn('container.addEventListener("drop", handleInputImageDrop)', source)
+        self.assertIn("file.size >= 20 * 1024 * 1024", source)
+        self.assertIn("result.resize_message", source)
 
 
 if __name__ == "__main__":

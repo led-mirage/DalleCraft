@@ -12,7 +12,7 @@ LOG_DIR = "logs"
 
 
 class SessionEntry:
-    def __init__(self, prompt, revised_prompt, api_type, model_name, image_size, image_quality, success, elapsed_time, image_filename, thumbnail_filename, error_info=None, timestamp=None):
+    def __init__(self, prompt, revised_prompt, api_type, model_name, image_size, image_quality, success, elapsed_time, image_filename, thumbnail_filename, error_info=None, timestamp=None, input_images=None):
         self.id = 0
         self.timestamp = datetime.now() if timestamp is None else timestamp
         self.prompt = prompt
@@ -26,6 +26,7 @@ class SessionEntry:
         self.image_filename = image_filename
         self.thumbnail_filename = thumbnail_filename
         self.error_info = error_info
+        self.input_images = [] if input_images is None else input_images
 
     def to_dict(self):
         return {
@@ -41,6 +42,7 @@ class SessionEntry:
             "elapsed_time": self.elapsed_time,
             "image_filename": self.image_filename,
             "thumbnail_filename": self.thumbnail_filename,
+            "input_images": [dict(image) for image in self.input_images],
             "error_info": self.error_info
         }
 
@@ -58,6 +60,7 @@ class SessionEntry:
             image_filename=data.get("image_filename", ""),
             thumbnail_filename=data.get("thumbnail_filename", ""),
             error_info=data["error_info"],
+            input_images=data.get("input_images", []),
         )
         entry.id = data.get("id", 0)
         entry.timestamp = datetime.fromisoformat(data["timestamp"])

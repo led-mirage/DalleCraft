@@ -5,24 +5,37 @@
 # ライセンスの詳細については、このプロジェクトのLICENSEファイルを参照してください。
 
 import base64
+import binascii
+import io
 import json
 import os
 import shutil
+import tempfile
 import time
+import uuid
 from datetime import datetime
 
 import openai
-from PIL import Image
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from app_const import APP_NAME, CONFIG_FILE, IMAGE_DIR
 from app_window import AppWindow
 from config import Config
 from dalle import GPTImageClient
-from session import SessionManager, SessionEntry, Session
+from session import LOG_DIR, SessionManager, SessionEntry, Session
 from generation_logger import ImageGenerationLogger
+
+INPUT_IMAGE_DIR = os.path.join(LOG_DIR, "input-images")
 
 
 class IndexService:
+    MAX_INPUT_IMAGE_BYTES = 20 * 1024 * 1024
+    MAX_INPUT_IMAGE_EDGE = 2048
+    INPUT_IMAGE_FORMATS = {
+        "PNG": (".png", "image/png"),
+        "JPEG": (".jpg", "image/jpeg"),
+        "WEBP": (".webp", "image/webp"),
+    }
     VALID_IMAGE_SIZES = {
         "auto",
         "1024x1024",
@@ -42,12 +55,20 @@ class IndexService:
         self.window = window
         self.config = config
         self.session_manager = session_manager
+        self._input_image_temp_dir = tempfile.TemporaryDirectory(prefix="dallecraft-input-")
+        self._pending_input_images: dict[str, dict] = {}
+
+    def close(self):
+        for input_image_id in list(self._pending_input_images):
+            self.release_input_image(input_image_id)
+        self._input_image_temp_dir.cleanup()
 
     def gen_image(
         self,
         prompt: str,
         size: str | None = None,
         quality: str | None = None,
+        input_image_path: str | None = None,
     ) -> tuple[str, str, float]:
         start_time = time.time()
         image_client = self.create_image_client()
@@ -55,7 +76,19 @@ class IndexService:
         configured_size, configured_quality = self.config.get_model_param()
         size = configured_size if size is None else size
         quality = configured_quality if quality is None else quality
-        image_b64, revised_prompt = image_client.gen_image(prompt, size=size, quality=quality)
+        if input_image_path:
+            image_b64, revised_prompt = image_client.edit_image(
+                prompt,
+                input_image_path,
+                size=size,
+                quality=quality,
+            )
+        else:
+            image_b64, revised_prompt = image_client.gen_image(
+                prompt,
+                size=size,
+                quality=quality,
+            )
 
         elapsed_time = time.time() - start_time
         return image_b64, revised_prompt, elapsed_time
@@ -82,6 +115,253 @@ class IndexService:
         self.config.model["quality"] = quality
         self.config.save(CONFIG_FILE)
         return True
+
+    def normalize_input_image(self, image_bytes: bytes) -> dict:
+        try:
+            with Image.open(io.BytesIO(image_bytes)) as image:
+                image_format = image.format
+                image.verify()
+
+            if image_format not in self.INPUT_IMAGE_FORMATS:
+                raise ValueError("PNG、JPEG、WebP形式の画像を貼り付けてください。")
+
+            with Image.open(io.BytesIO(image_bytes)) as image:
+                normalized_image = ImageOps.exif_transpose(image)
+                original_width, original_height = normalized_image.size
+                resized = max(original_width, original_height) > self.MAX_INPUT_IMAGE_EDGE
+
+                if resized:
+                    normalized_image.thumbnail(
+                        (self.MAX_INPUT_IMAGE_EDGE, self.MAX_INPUT_IMAGE_EDGE),
+                        Image.Resampling.LANCZOS,
+                    )
+                    output = io.BytesIO()
+                    if image_format == "JPEG":
+                        if normalized_image.mode not in ("RGB", "L"):
+                            normalized_image = normalized_image.convert("RGB")
+                        normalized_image.save(
+                            output,
+                            format="JPEG",
+                            quality=90,
+                            optimize=True,
+                        )
+                    elif image_format == "WEBP":
+                        normalized_image.save(
+                            output,
+                            format="WEBP",
+                            quality=90,
+                            method=4,
+                        )
+                    else:
+                        normalized_image.save(output, format="PNG", optimize=True)
+                    normalized_bytes = output.getvalue()
+                else:
+                    normalized_bytes = image_bytes
+
+                width, height = normalized_image.size
+        except (Image.DecompressionBombError, UnidentifiedImageError, OSError, ValueError) as e:
+            if isinstance(e, ValueError) and str(e).startswith("PNG、JPEG、WebP"):
+                raise
+            raise ValueError("PNG、JPEG、WebP形式の画像を貼り付けてください。") from e
+
+        return {
+            "image_bytes": normalized_bytes,
+            "image_format": image_format,
+            "original_width": original_width,
+            "original_height": original_height,
+            "width": width,
+            "height": height,
+            "original_size_bytes": len(image_bytes),
+            "size_bytes": len(normalized_bytes),
+            "resized": resized,
+        }
+
+    def register_input_image(self, image_data: dict) -> dict:
+        if not isinstance(image_data, dict):
+            raise ValueError("貼り付け画像の形式が正しくありません。")
+
+        encoded_image = image_data.get("image_base64", "")
+        if not isinstance(encoded_image, str) or not encoded_image:
+            raise ValueError("貼り付け画像のデータがありません。")
+        if encoded_image.startswith("data:"):
+            try:
+                encoded_image = encoded_image.split(",", 1)[1]
+            except IndexError as e:
+                raise ValueError("貼り付け画像のデータが正しくありません。") from e
+
+        try:
+            image_bytes = base64.b64decode(encoded_image, validate=True)
+        except (binascii.Error, ValueError) as e:
+            raise ValueError("貼り付け画像を読み込めませんでした。") from e
+
+        if len(image_bytes) >= self.MAX_INPUT_IMAGE_BYTES:
+            raise ValueError("貼り付け画像は20MB未満にしてください。")
+
+        normalized = self.normalize_input_image(image_bytes)
+        image_bytes = normalized["image_bytes"]
+        image_format = normalized["image_format"]
+
+        extension, mime_type = self.INPUT_IMAGE_FORMATS[image_format]
+        input_image_id = uuid.uuid4().hex
+        temp_path = os.path.join(
+            self._input_image_temp_dir.name,
+            f"{input_image_id}{extension}",
+        )
+        with open(temp_path, "wb") as image_file:
+            image_file.write(image_bytes)
+
+        try:
+            preview_base64 = self.create_image_preview_base64(temp_path)
+        except Exception:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            raise
+
+        source = image_data.get("source", "clipboard")
+        if source not in ("clipboard", "drop"):
+            source = "clipboard"
+        default_name = f"pasted-image{extension}"
+        original_name = os.path.basename(image_data.get("filename") or default_name)
+        pending_image = {
+            "id": input_image_id,
+            "path": temp_path,
+            "original_name": original_name,
+            "source": source,
+            "mime_type": mime_type,
+            "extension": extension,
+            "original_width": normalized["original_width"],
+            "original_height": normalized["original_height"],
+            "width": normalized["width"],
+            "height": normalized["height"],
+            "original_size_bytes": normalized["original_size_bytes"],
+            "size_bytes": normalized["size_bytes"],
+            "resized": normalized["resized"],
+        }
+        self._pending_input_images[input_image_id] = pending_image
+
+        result = {
+            "success": True,
+            "input_image_id": input_image_id,
+            "filename": original_name,
+            "source": source,
+            "mime_type": mime_type,
+            "preview_base64": preview_base64,
+            "original_width": normalized["original_width"],
+            "original_height": normalized["original_height"],
+            "width": normalized["width"],
+            "height": normalized["height"],
+            "original_size_bytes": normalized["original_size_bytes"],
+            "size_bytes": normalized["size_bytes"],
+            "resized": normalized["resized"],
+        }
+        if normalized["resized"]:
+            result["resize_message"] = (
+                f"入力画像を {normalized['original_width']}×{normalized['original_height']} から "
+                f"{normalized['width']}×{normalized['height']} に縮小しました。"
+            )
+        return result
+
+    def release_input_image(self, input_image_id: str) -> bool:
+        pending_image = self._pending_input_images.pop(input_image_id, None)
+        if pending_image is None:
+            return False
+        image_path = pending_image["path"]
+        if os.path.exists(image_path):
+            os.remove(image_path)
+        return True
+
+    def resolve_input_image(self, options: dict | None) -> dict | None:
+        if not options:
+            return None
+        input_image_id = options.get("input_image_id")
+        if not input_image_id:
+            return None
+        if not isinstance(input_image_id, str):
+            raise ValueError("貼り付け画像のIDが正しくありません。")
+        pending_image = self._pending_input_images.get(input_image_id)
+        if pending_image is None or not os.path.exists(pending_image["path"]):
+            raise ValueError("貼り付け画像が見つかりません。もう一度貼り付けてください。")
+        return pending_image
+
+    def create_image_preview_base64(self, image_path: str, max_size=(256, 256)) -> str:
+        with Image.open(image_path) as image:
+            preview = ImageOps.exif_transpose(image)
+            preview.thumbnail(max_size, Image.Resampling.LANCZOS)
+            if preview.mode not in ("RGB", "RGBA"):
+                preview = preview.convert("RGBA")
+            preview_buffer = io.BytesIO()
+            preview.save(preview_buffer, format="PNG")
+        return base64.b64encode(preview_buffer.getvalue()).decode("utf-8")
+
+    def persist_input_image(self, pending_image: dict) -> dict:
+        os.makedirs(INPUT_IMAGE_DIR, exist_ok=True)
+
+        input_filename = f"input_image_{uuid.uuid4().hex}{pending_image['extension']}"
+        input_path = os.path.join(INPUT_IMAGE_DIR, input_filename)
+        shutil.copy2(pending_image["path"], input_path)
+
+        thumbnail_filename = f"{os.path.splitext(input_filename)[0]}_thumbnail.png"
+        thumbnail_path = os.path.join(INPUT_IMAGE_DIR, thumbnail_filename)
+        thumbnail_data = base64.b64decode(self.create_image_preview_base64(input_path))
+        with open(thumbnail_path, "wb") as thumbnail_file:
+            thumbnail_file.write(thumbnail_data)
+
+        return {
+            "filename": input_filename,
+            "thumbnail_filename": thumbnail_filename,
+            "original_name": pending_image["original_name"],
+            "source": pending_image["source"],
+            "mime_type": pending_image["mime_type"],
+            "original_width": pending_image["original_width"],
+            "original_height": pending_image["original_height"],
+            "width": pending_image["width"],
+            "height": pending_image["height"],
+            "original_size_bytes": pending_image["original_size_bytes"],
+            "size_bytes": pending_image["size_bytes"],
+            "resized": pending_image["resized"],
+        }
+
+    def get_stored_input_image_path(self, filename: str) -> str:
+        if not filename:
+            return ""
+        input_path = os.path.join(INPUT_IMAGE_DIR, filename)
+        if os.path.exists(input_path):
+            return input_path
+
+        # Compatibility with input images created before logs/input-images was used.
+        legacy_path = os.path.join(IMAGE_DIR, filename)
+        if os.path.exists(legacy_path):
+            return legacy_path
+        return input_path
+
+    def add_input_image_previews(self, entry_dict: dict):
+        for input_image in entry_dict.get("input_images", []):
+            thumbnail_filename = input_image.get("thumbnail_filename", "")
+            thumbnail_path = self.get_stored_input_image_path(thumbnail_filename)
+            if thumbnail_filename and os.path.exists(thumbnail_path):
+                with open(thumbnail_path, "rb") as image_file:
+                    input_image["thumbnail_base64"] = base64.b64encode(
+                        image_file.read()
+                    ).decode("utf-8")
+
+    def remove_managed_file(self, filename: str, directory: str = IMAGE_DIR):
+        if not filename:
+            return
+        file_path = os.path.join(directory, filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+    def remove_entry_files(self, entry: SessionEntry):
+        if entry.success:
+            self.remove_managed_file(entry.image_filename)
+            self.remove_managed_file(entry.thumbnail_filename)
+        for input_image in entry.input_images:
+            for filename in (
+                input_image.get("filename", ""),
+                input_image.get("thumbnail_filename", ""),
+            ):
+                self.remove_managed_file(filename, INPUT_IMAGE_DIR)
+                self.remove_managed_file(filename, IMAGE_DIR)
 
     def create_image_client(self) -> GPTImageClient:
         model_name = self.config.get_model_name()
@@ -129,7 +409,8 @@ class IndexService:
             session_name = session.session_name if session.session_name else APP_NAME
             self.window.evaluate_js(f"setSessionName({json.dumps(session_name)})")
             for entry in session.entries:
-                dict = entry.to_dict()
+                entry_dict = entry.to_dict()
+                self.add_input_image_previews(entry_dict)
                 if entry.success:
                     if entry.thumbnail_filename == "":
                         image_path = os.path.join(IMAGE_DIR, entry.image_filename)
@@ -140,8 +421,8 @@ class IndexService:
                     image_path = os.path.join(IMAGE_DIR, entry.thumbnail_filename)
                     with open(image_path, "rb") as image_file:
                         image_b64 = base64.b64encode(image_file.read()).decode("utf-8")
-                        dict["image_base64"] = image_b64
-                self.window.evaluate_js(f"addEntry({json.dumps(dict)})")
+                        entry_dict["image_base64"] = image_b64
+                self.window.evaluate_js(f"addEntry({json.dumps(entry_dict)})")
 
     # --------------------------------------------------------------------------
     # JavaScriptから呼び出されるAPI群
@@ -164,38 +445,116 @@ class IndexService:
         except (TypeError, ValueError) as e:
             return {"success": False, "error_info": str(e)}
 
+    def api_register_input_image(self, image_data: dict) -> dict:
+        try:
+            return self.register_input_image(image_data)
+        except Exception as e:
+            return {"success": False, "error_info": str(e)}
+
+    def api_release_input_image(self, input_image_id: str) -> dict:
+        return {"success": self.release_input_image(input_image_id)}
+
+    def api_get_pending_input_image_base64(self, input_image_id: str) -> str:
+        pending_image = self._pending_input_images.get(input_image_id)
+        if pending_image is None:
+            return ""
+        image_path = pending_image["path"]
+        if not os.path.exists(image_path):
+            return ""
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode("utf-8")
+
     def api_gen_image(self, prompt: str, options: dict | None = None) -> dict:
         api_type = self.config.api_type
         model_name = self.config.get_model_name()
         image_size, image_quality = self.config.get_model_param()
+        pending_input_image = None
         try:
             image_size, image_quality = self.resolve_generation_options(options)
+            pending_input_image = self.resolve_input_image(options)
             if options is not None:
                 self.update_generation_options(image_size, image_quality)
             image_b64, revised_prompt, elapsed_time = self.gen_image(
                 prompt,
                 size=image_size,
                 quality=image_quality,
+                input_image_path=(
+                    pending_input_image["path"] if pending_input_image else None
+                ),
             )
             image_path = self.save_image(image_b64)
             image_filename = os.path.basename(image_path)
             thumbnail_path = self.save_resized_image(image_path)
             thumbnail_filename = os.path.basename(thumbnail_path)
-            entry = SessionEntry(prompt, revised_prompt, api_type, model_name, image_size, image_quality, True, elapsed_time, image_filename, thumbnail_filename)
+            input_images = (
+                [self.persist_input_image(pending_input_image)]
+                if pending_input_image
+                else []
+            )
+            entry = SessionEntry(
+                prompt,
+                revised_prompt,
+                api_type,
+                model_name,
+                image_size,
+                image_quality,
+                True,
+                elapsed_time,
+                image_filename,
+                thumbnail_filename,
+                input_images=input_images,
+            )
             session = self.session_manager.get_current_session()
             session.add_entry(entry)
             session.save_to_file()
             ImageGenerationLogger.log(entry)
-            dict = entry.to_dict()
-            dict["image_base64"] = image_b64
-            return dict
+            entry_dict = entry.to_dict()
+            entry_dict["image_base64"] = image_b64
+            self.add_input_image_previews(entry_dict)
+            if pending_input_image:
+                self.release_input_image(pending_input_image["id"])
+            return entry_dict
         except openai.BadRequestError as e:
-            entry = SessionEntry(prompt, "", api_type, model_name, image_size, image_quality, False, 0.0, "", "", str(e))
+            input_images = []
+            if pending_input_image:
+                try:
+                    input_images.append(self.persist_input_image(pending_input_image))
+                except OSError:
+                    input_images.append({
+                        "filename": "",
+                        "thumbnail_filename": "",
+                        "original_name": pending_input_image["original_name"],
+                        "source": pending_input_image["source"],
+                        "mime_type": pending_input_image["mime_type"],
+                        "original_width": pending_input_image["original_width"],
+                        "original_height": pending_input_image["original_height"],
+                        "width": pending_input_image["width"],
+                        "height": pending_input_image["height"],
+                        "original_size_bytes": pending_input_image["original_size_bytes"],
+                        "size_bytes": pending_input_image["size_bytes"],
+                        "resized": pending_input_image["resized"],
+                    })
+            entry = SessionEntry(
+                prompt,
+                "",
+                api_type,
+                model_name,
+                image_size,
+                image_quality,
+                False,
+                0.0,
+                "",
+                "",
+                str(e),
+                input_images=input_images,
+            )
             session = self.session_manager.get_current_session()
             session.add_entry(entry)
             session.save_to_file()
             ImageGenerationLogger.log(entry)
-            return entry.to_dict()
+            entry_dict = entry.to_dict()
+            self.add_input_image_previews(entry_dict)
+            return entry_dict
         except KeyError as e:
             return {"error_info": f"環境変数 {e} が見つかりません。"}
         except Exception as e:
@@ -219,6 +578,18 @@ class IndexService:
                 return image_b64
         else:
             return ""
+
+    def api_get_input_image_base64(self, entry_id: int, image_index: int = 0) -> str:
+        session = self.session_manager.get_current_session()
+        entry = session.find_entry(entry_id)
+        if entry is None or not 0 <= image_index < len(entry.input_images):
+            return ""
+        input_filename = entry.input_images[image_index].get("filename", "")
+        input_path = self.get_stored_input_image_path(input_filename)
+        if not input_filename or not os.path.exists(input_path):
+            return ""
+        with open(input_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode("utf-8")
 
     def api_get_image_info(self, entry_id: int) -> dict:
         session = self.session_manager.get_current_session()
@@ -246,26 +617,15 @@ class IndexService:
     def api_delete_entry(self, entry_id: int):
         session = self.session_manager.get_current_session()
         entry = session.find_entry(entry_id)
-        if entry and entry.success:
-            image_path = os.path.join(IMAGE_DIR, entry.image_filename)
-            thumbnail_path = os.path.join(IMAGE_DIR, entry.thumbnail_filename)
-            if os.path.exists(image_path):
-                os.remove(image_path)
-            if os.path.exists(thumbnail_path):
-                os.remove(thumbnail_path)
+        if entry:
+            self.remove_entry_files(entry)
         session.remove_entry(entry_id)
         session.save_to_file()
 
     def api_delete_current_session(self):
         session = self.session_manager.get_current_session()
         for entry in session.entries:
-            if entry.success:
-                image_path = os.path.join(IMAGE_DIR, entry.image_filename)
-                thumbnail_path = os.path.join(IMAGE_DIR, entry.thumbnail_filename)
-                if os.path.exists(image_path):
-                    os.remove(image_path)
-                if os.path.exists(thumbnail_path):
-                    os.remove(thumbnail_path)
+            self.remove_entry_files(entry)
         session = self.session_manager.delete_current_session()
         self.refresh_view(session)
 

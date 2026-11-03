@@ -40,11 +40,23 @@ class Api:
     def api_update_generation_options(self, options: dict) -> dict:
         return self.index_service.api_update_generation_options(options)
 
+    def api_register_input_image(self, image_data: dict) -> dict:
+        return self.index_service.api_register_input_image(image_data)
+
+    def api_release_input_image(self, input_image_id: str) -> dict:
+        return self.index_service.api_release_input_image(input_image_id)
+
+    def api_get_pending_input_image_base64(self, input_image_id: str) -> str:
+        return self.index_service.api_get_pending_input_image_base64(input_image_id)
+
     def api_save_image(self, entry_id: int):
         return self.index_service.api_save_image(entry_id)
 
     def api_get_image_base64(self, entry_id: int) -> str:
         return self.index_service.api_get_image_base64(entry_id)
+
+    def api_get_input_image_base64(self, entry_id: int, image_index: int = 0) -> str:
+        return self.index_service.api_get_input_image_base64(entry_id, image_index)
 
     def api_get_image_info(self, entry_id: int) -> dict:
         return self.index_service.api_get_image_info(entry_id)
