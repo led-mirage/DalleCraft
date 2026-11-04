@@ -84,11 +84,8 @@
         </div>
         <div class="prompt-area">
             <div id="prompt-input-container" class="prompt-input-container">
-                <div id="input-image-preview" class="input-image-preview" hidden>
-                    <img id="input-image-preview-img" alt="貼り付けた入力画像">
-                    <button id="remove-input-image-button" type="button" aria-label="貼り付けた画像を削除">&times;</button>
-                </div>
-                <textarea id="prompt" placeholder="プロンプトを入力...（Ctrl+Vまたはドラッグ＆ドロップで画像を貼り付け）"></textarea>
+                <div id="input-image-previews" class="input-image-previews" hidden></div>
+                <textarea id="prompt" placeholder="プロンプトを入力...（Ctrl+Vまたはドラッグ＆ドロップで画像を最大2枚添付）"></textarea>
             </div>
             <button id="submit-button" type="button" onclick="genImage()">画像生成</button>
         </div>
@@ -134,7 +131,8 @@
 </div>
 
 <script>
-let pendingInputImage = null;
+const MAX_INPUT_IMAGES = 2;
+let pendingInputImages = [];
 const imageModalView = {
     scale: 1,
     x: 0,
@@ -334,8 +332,8 @@ function getQuickSettings() {
         size: document.getElementById("quick-image-size").value,
         quality: document.getElementById("quick-image-quality").value
     };
-    if (pendingInputImage) {
-        options.input_image_id = pendingInputImage.input_image_id;
+    if (pendingInputImages.length > 0) {
+        options.input_image_ids = pendingInputImages.map(image => image.input_image_id);
     }
     return options;
 }
@@ -354,8 +352,6 @@ async function saveQuickSettings() {
 function initInputImageHandlers() {
     const prompt = document.getElementById("prompt");
     const container = document.getElementById("prompt-input-container");
-    const preview = document.getElementById("input-image-preview-img");
-    const removeButton = document.getElementById("remove-input-image-button");
 
     prompt.addEventListener("paste", handleInputImagePaste);
     container.addEventListener("dragenter", function(event) {
@@ -389,11 +385,6 @@ function initInputImageHandlers() {
         }
     });
 
-    removeButton.addEventListener("click", function(event) {
-        event.stopPropagation();
-        clearInputImage(true);
-    });
-    preview.addEventListener("click", showPendingInputImage);
 }
 
 function hasDraggedFiles(event) {
@@ -401,14 +392,18 @@ function hasDraggedFiles(event) {
 }
 
 async function handleInputImagePaste(event) {
-    const imageItem = Array.from(event.clipboardData.items || []).find(
+    const imageItems = Array.from(event.clipboardData.items || []).filter(
         item => item.kind === "file" && item.type.startsWith("image/")
     );
-    if (!imageItem) return;
+    if (imageItems.length === 0) return;
 
     event.preventDefault();
-    const imageFile = imageItem.getAsFile();
-    if (imageFile) {
+    const imageFiles = imageItems.map(item => item.getAsFile()).filter(Boolean);
+    if (pendingInputImages.length + imageFiles.length > MAX_INPUT_IMAGES) {
+        alert(`入力画像は最大${MAX_INPUT_IMAGES}枚までです。`);
+        return;
+    }
+    for (const imageFile of imageFiles) {
         await registerInputImage(imageFile, "clipboard");
     }
 }
@@ -421,11 +416,17 @@ async function handleInputImageDrop(event) {
     event.preventDefault();
     const files = Array.from(event.dataTransfer.files || []);
     const imageFiles = files.filter(isSupportedInputImageFile);
-    if (files.length !== 1 || imageFiles.length !== 1) {
-        alert("PNG、JPEG、WebP形式の画像を1枚だけドロップしてください。");
+    if (files.length !== imageFiles.length || imageFiles.length === 0) {
+        alert("PNG、JPEG、WebP形式の画像をドロップしてください。");
         return;
     }
-    await registerInputImage(imageFiles[0], "drop");
+    if (pendingInputImages.length + imageFiles.length > MAX_INPUT_IMAGES) {
+        alert(`入力画像は最大${MAX_INPUT_IMAGES}枚までです。`);
+        return;
+    }
+    for (const imageFile of imageFiles) {
+        await registerInputImage(imageFile, "drop");
+    }
 }
 
 function isSupportedInputImageFile(file) {
@@ -449,6 +450,10 @@ function readFileAsDataUrl(file) {
 }
 
 async function registerInputImage(file, source) {
+    if (pendingInputImages.length >= MAX_INPUT_IMAGES) {
+        alert(`入力画像は最大${MAX_INPUT_IMAGES}枚までです。`);
+        return;
+    }
     if (!isSupportedInputImageFile(file)) {
         alert("PNG、JPEG、WebP形式の画像を貼り付けてください。");
         return;
@@ -471,14 +476,10 @@ async function registerInputImage(file, source) {
             return;
         }
 
-        const previousImage = pendingInputImage;
-        pendingInputImage = result;
-        showInputImagePreview(result);
+        pendingInputImages.push(result);
+        renderInputImagePreviews();
         if (result.resize_message) {
             alert(result.resize_message);
-        }
-        if (previousImage) {
-            await pywebview.api.api_release_input_image(previousImage.input_image_id);
         }
     }
     catch (error) {
@@ -486,37 +487,71 @@ async function registerInputImage(file, source) {
     }
 }
 
-function showInputImagePreview(image) {
-    const previewContainer = document.getElementById("input-image-preview");
-    const preview = document.getElementById("input-image-preview-img");
-    preview.src = "data:image/png;base64," + image.preview_base64;
-    preview.title = image.resize_message
-        ? image.filename + "\n" + image.resize_message
-        : image.filename;
-    previewContainer.hidden = false;
+function renderInputImagePreviews() {
+    const previewContainer = document.getElementById("input-image-previews");
+    previewContainer.replaceChildren();
+    previewContainer.hidden = pendingInputImages.length === 0;
+
+    pendingInputImages.forEach((image, index) => {
+        const item = document.createElement("div");
+        item.className = "input-image-preview-item";
+
+        const preview = document.createElement("img");
+        preview.src = "data:image/png;base64," + image.preview_base64;
+        preview.alt = `入力画像${index + 1}`;
+        preview.title = image.resize_message
+            ? image.filename + "\n" + image.resize_message
+            : image.filename;
+        preview.addEventListener("click", () => showPendingInputImage(index));
+
+        const badge = document.createElement("span");
+        badge.className = "input-image-preview-badge";
+        badge.textContent = String(index + 1);
+
+        const removeButton = document.createElement("button");
+        removeButton.type = "button";
+        removeButton.setAttribute("aria-label", `入力画像${index + 1}を削除`);
+        removeButton.innerHTML = "&times;";
+        removeButton.addEventListener("click", async event => {
+            event.stopPropagation();
+            await removeInputImage(index, true);
+        });
+
+        item.appendChild(preview);
+        item.appendChild(badge);
+        item.appendChild(removeButton);
+        previewContainer.appendChild(item);
+    });
 }
 
-async function clearInputImage(releaseOnBackend) {
-    const image = pendingInputImage;
-    pendingInputImage = null;
-    const previewContainer = document.getElementById("input-image-preview");
-    const preview = document.getElementById("input-image-preview-img");
-    previewContainer.hidden = true;
-    preview.removeAttribute("src");
-    preview.removeAttribute("title");
+async function removeInputImage(index, releaseOnBackend) {
+    const [image] = pendingInputImages.splice(index, 1);
+    renderInputImagePreviews();
     if (releaseOnBackend && image) {
         await pywebview.api.api_release_input_image(image.input_image_id);
     }
 }
 
-async function showPendingInputImage() {
-    if (!pendingInputImage) return;
+async function clearInputImages(releaseOnBackend) {
+    const images = pendingInputImages;
+    pendingInputImages = [];
+    renderInputImagePreviews();
+    if (releaseOnBackend) {
+        for (const image of images) {
+            await pywebview.api.api_release_input_image(image.input_image_id);
+        }
+    }
+}
+
+async function showPendingInputImage(index) {
+    const image = pendingInputImages[index];
+    if (!image) return;
     const imageBase64 = await pywebview.api.api_get_pending_input_image_base64(
-        pendingInputImage.input_image_id
+        image.input_image_id
     );
     if (!imageBase64) return;
     showImageModal(
-        "data:" + pendingInputImage.mime_type + ";base64," + imageBase64,
+        "data:" + image.mime_type + ";base64," + imageBase64,
         null,
         "input"
     );
@@ -709,8 +744,8 @@ async function displayGenerationResult(entry, fallbackPrompt, clearPendingOnSucc
     addCard(entry.id, entry.prompt || fallbackPrompt, entry.input_images || []);
     if (entry.success) {
         addImage(entry);
-        if (clearPendingOnSuccess && pendingInputImage) {
-            await clearInputImage(false);
+        if (clearPendingOnSuccess && pendingInputImages.length > 0) {
+            await clearInputImages(false);
         }
     }
     else {
@@ -741,39 +776,44 @@ function addCard(id, prompt, inputImages = []) {
     promptElm.dataset.prompt = prompt;
 
     if (inputImages.length > 0) {
-        const inputImage = inputImages[0];
-        const reference = document.createElement("div");
-        reference.className = "input-reference";
-        reference.title = inputImage.original_name || "入力画像";
+        const references = document.createElement("div");
+        references.className = "input-references";
 
-        const badge = document.createElement("span");
-        badge.className = "input-reference-badge";
-        badge.textContent = "入力";
+        inputImages.forEach((inputImage, imageIndex) => {
+            const reference = document.createElement("div");
+            reference.className = "input-reference";
+            reference.title = inputImage.original_name || `入力画像${imageIndex + 1}`;
 
-        const image = document.createElement("img");
-        image.className = "input-reference-image";
-        image.dataset.kind = "input";
-        image.dataset.entryId = id;
-        image.dataset.imageIndex = "0";
-        if (inputImage.thumbnail_base64) {
-            image.src = "data:image/png;base64," + inputImage.thumbnail_base64;
-        }
-        image.addEventListener("click", async function() {
-            const imageBase64 = await pywebview.api.api_get_input_image_base64(
-                parseInt(this.dataset.entryId),
-                parseInt(this.dataset.imageIndex)
-            );
-            if (imageBase64) {
-                showImageModal(
-                    "data:" + (inputImage.mime_type || "image/png") + ";base64," + imageBase64,
-                    parseInt(this.dataset.entryId),
-                    "input"
-                );
+            const badge = document.createElement("span");
+            badge.className = "input-reference-badge";
+            badge.textContent = `入力${imageIndex + 1}`;
+
+            const image = document.createElement("img");
+            image.className = "input-reference-image";
+            image.dataset.kind = "input";
+            image.dataset.entryId = id;
+            image.dataset.imageIndex = String(imageIndex);
+            if (inputImage.thumbnail_base64) {
+                image.src = "data:image/png;base64," + inputImage.thumbnail_base64;
             }
+            image.addEventListener("click", async function() {
+                const imageBase64 = await pywebview.api.api_get_input_image_base64(
+                    parseInt(this.dataset.entryId),
+                    parseInt(this.dataset.imageIndex)
+                );
+                if (imageBase64) {
+                    showImageModal(
+                        "data:" + (inputImage.mime_type || "image/png") + ";base64," + imageBase64,
+                        parseInt(this.dataset.entryId),
+                        "input"
+                    );
+                }
+            });
+            reference.appendChild(image);
+            reference.appendChild(badge);
+            references.appendChild(reference);
         });
-        reference.appendChild(image);
-        reference.appendChild(badge);
-        promptElm.appendChild(reference);
+        promptElm.appendChild(references);
     }
 
     const promptText = document.createElement("div");

@@ -37,9 +37,7 @@ class IndexHtmlTest(unittest.TestCase):
         self.assertIn("quick-image-quality", parser.ids)
         self.assertIn("current-api-type", parser.ids)
         self.assertIn("prompt-input-container", parser.ids)
-        self.assertIn("input-image-preview", parser.ids)
-        self.assertIn("input-image-preview-img", parser.ids)
-        self.assertIn("remove-input-image-button", parser.ids)
+        self.assertIn("input-image-previews", parser.ids)
 
     def test_quick_quality_labels_are_english(self):
         source = (
@@ -67,6 +65,9 @@ class IndexHtmlTest(unittest.TestCase):
         self.assertIn('container.addEventListener("drop", handleInputImageDrop)', source)
         self.assertIn("file.size >= 20 * 1024 * 1024", source)
         self.assertIn("result.resize_message", source)
+        self.assertIn("const MAX_INPUT_IMAGES = 2", source)
+        self.assertIn("options.input_image_ids", source)
+        self.assertIn("inputImages.forEach((inputImage, imageIndex)", source)
 
     def test_supports_copying_generated_images(self):
         source = (
