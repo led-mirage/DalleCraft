@@ -30,6 +30,7 @@ INPUT_IMAGE_DIR = os.path.join(LOG_DIR, "input-images")
 
 
 class IndexService:
+    MAX_INPUT_IMAGES = 2
     MAX_INPUT_IMAGE_BYTES = 20 * 1024 * 1024
     MAX_INPUT_IMAGE_EDGE = 2048
     INPUT_IMAGE_FORMATS = {
@@ -69,7 +70,7 @@ class IndexService:
         prompt: str,
         size: str | None = None,
         quality: str | None = None,
-        input_image_path: str | None = None,
+        input_image_paths: list[str] | None = None,
     ) -> tuple[str, str, float]:
         start_time = time.time()
         image_client = self.create_image_client()
@@ -77,10 +78,10 @@ class IndexService:
         configured_size, configured_quality = self.config.get_model_param()
         size = configured_size if size is None else size
         quality = configured_quality if quality is None else quality
-        if input_image_path:
+        if input_image_paths:
             image_b64, revised_prompt = image_client.edit_image(
                 prompt,
-                input_image_path,
+                input_image_paths,
                 size=size,
                 quality=quality,
             )
@@ -271,18 +272,35 @@ class IndexService:
             os.remove(image_path)
         return True
 
-    def resolve_input_image(self, options: dict | None) -> dict | None:
+    def resolve_input_images(self, options: dict | None) -> list[dict]:
         if not options:
-            return None
-        input_image_id = options.get("input_image_id")
-        if not input_image_id:
-            return None
-        if not isinstance(input_image_id, str):
+            return []
+
+        input_image_ids = options.get("input_image_ids")
+        if input_image_ids is None:
+            # 従来の単一画像リクエストとの互換性を維持する。
+            legacy_input_image_id = options.get("input_image_id")
+            input_image_ids = [legacy_input_image_id] if legacy_input_image_id else []
+
+        if not isinstance(input_image_ids, list):
+            raise ValueError("貼り付け画像のID一覧が正しくありません。")
+        if len(input_image_ids) > self.MAX_INPUT_IMAGES:
+            raise ValueError(f"入力画像は最大{self.MAX_INPUT_IMAGES}枚までです。")
+        if any(
+            not isinstance(input_image_id, str) or not input_image_id
+            for input_image_id in input_image_ids
+        ):
             raise ValueError("貼り付け画像のIDが正しくありません。")
-        pending_image = self._pending_input_images.get(input_image_id)
-        if pending_image is None or not os.path.exists(pending_image["path"]):
-            raise ValueError("貼り付け画像が見つかりません。もう一度貼り付けてください。")
-        return pending_image
+        if len(set(input_image_ids)) != len(input_image_ids):
+            raise ValueError("同じ入力画像が複数指定されています。")
+
+        pending_images = []
+        for input_image_id in input_image_ids:
+            pending_image = self._pending_input_images.get(input_image_id)
+            if pending_image is None or not os.path.exists(pending_image["path"]):
+                raise ValueError("貼り付け画像が見つかりません。もう一度貼り付けてください。")
+            pending_images.append(pending_image)
+        return pending_images
 
     def create_image_preview_base64(self, image_path: str, max_size=(256, 256)) -> str:
         with Image.open(image_path) as image:
@@ -469,29 +487,29 @@ class IndexService:
         api_type = self.config.api_type
         model_name = self.config.get_model_name()
         image_size, image_quality = self.config.get_model_param()
-        pending_input_image = None
+        pending_input_images = []
         try:
             image_size, image_quality = self.resolve_generation_options(options)
-            pending_input_image = self.resolve_input_image(options)
+            pending_input_images = self.resolve_input_images(options)
             if options is not None:
                 self.update_generation_options(image_size, image_quality)
             image_b64, revised_prompt, elapsed_time = self.gen_image(
                 prompt,
                 size=image_size,
                 quality=image_quality,
-                input_image_path=(
-                    pending_input_image["path"] if pending_input_image else None
-                ),
+                input_image_paths=[
+                    pending_input_image["path"]
+                    for pending_input_image in pending_input_images
+                ] or None,
             )
             image_path = self.save_image(image_b64)
             image_filename = os.path.basename(image_path)
             thumbnail_path = self.save_resized_image(image_path)
             thumbnail_filename = os.path.basename(thumbnail_path)
-            input_images = (
-                [self.persist_input_image(pending_input_image)]
-                if pending_input_image
-                else []
-            )
+            input_images = [
+                self.persist_input_image(pending_input_image)
+                for pending_input_image in pending_input_images
+            ]
             entry = SessionEntry(
                 prompt,
                 revised_prompt,
@@ -512,12 +530,12 @@ class IndexService:
             entry_dict = entry.to_dict()
             entry_dict["image_base64"] = image_b64
             self.add_input_image_previews(entry_dict)
-            if pending_input_image:
+            for pending_input_image in pending_input_images:
                 self.release_input_image(pending_input_image["id"])
             return entry_dict
         except openai.BadRequestError as e:
             input_images = []
-            if pending_input_image:
+            for pending_input_image in pending_input_images:
                 try:
                     input_images.append(self.persist_input_image(pending_input_image))
                 except OSError:
@@ -572,10 +590,13 @@ class IndexService:
         # 入力欄で準備中の参照画像は再作成リクエストへ混ぜない。
         regeneration_options = dict(options or {})
         regeneration_options.pop("input_image_id", None)
-        regenerated_input_id = None
+        regeneration_options.pop("input_image_ids", None)
+        regenerated_input_ids = []
         try:
-            if entry.input_images:
-                input_image = entry.input_images[0]
+            if len(entry.input_images) > self.MAX_INPUT_IMAGES:
+                return {"error_info": f"入力画像は最大{self.MAX_INPUT_IMAGES}枚までです。"}
+
+            for input_image in entry.input_images:
                 input_filename = input_image.get("filename", "")
                 input_path = self.get_stored_input_image_path(input_filename)
                 if not input_filename or not os.path.exists(input_path):
@@ -589,14 +610,16 @@ class IndexService:
                     "mime_type": input_image.get("mime_type", "image/png"),
                     "image_base64": image_base64,
                 })
-                regenerated_input_id = registered["input_image_id"]
-                regeneration_options["input_image_id"] = regenerated_input_id
+                regenerated_input_ids.append(registered["input_image_id"])
+
+            if regenerated_input_ids:
+                regeneration_options["input_image_ids"] = regenerated_input_ids
 
             return self.api_gen_image(entry.prompt, regeneration_options)
         except Exception as e:
             return {"error_info": str(e)}
         finally:
-            if regenerated_input_id:
+            for regenerated_input_id in regenerated_input_ids:
                 self.release_input_image(regenerated_input_id)
 
     def api_save_image(self, entry_id: int):

@@ -87,6 +87,31 @@ class GPTImageClientTest(unittest.TestCase):
         self.assertEqual("ZWRpdGVk", image_b64)
         self.assertEqual("revised", revised_prompt)
 
+    @patch("dalle.OpenAI")
+    def test_edits_png_with_two_input_images_in_order(self, openai_class):
+        image = SimpleNamespace(b64_json="ZWRpdGVk", revised_prompt=None)
+        openai_class.return_value.images.edit.return_value = SimpleNamespace(data=[image])
+
+        client = GPTImageClient(api_key="test-key", model="gpt-image-2.5-flare")
+        with tempfile.TemporaryDirectory() as directory:
+            first_path = Path(directory) / "first.png"
+            second_path = Path(directory) / "second.png"
+            first_path.write_bytes(b"first image")
+            second_path.write_bytes(b"second image")
+            image_b64, revised_prompt = client.edit_image(
+                "make the first image look like the second",
+                [str(first_path), str(second_path)],
+            )
+
+        call = openai_class.return_value.images.edit.call_args
+        self.assertEqual(
+            [str(first_path), str(second_path)],
+            [input_image.name for input_image in call.kwargs["image"]],
+        )
+        self.assertTrue(all(input_image.closed for input_image in call.kwargs["image"]))
+        self.assertEqual("ZWRpdGVk", image_b64)
+        self.assertEqual("", revised_prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

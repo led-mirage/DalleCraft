@@ -78,7 +78,7 @@ class IndexServiceTest(unittest.TestCase):
             "a test image",
             size="1536x1024",
             quality="high",
-            input_image_path=None,
+            input_image_paths=None,
         )
         config_save.assert_called_once_with("config.json")
         self.assertEqual("1536x1024", config.model["size"])
@@ -140,6 +140,25 @@ class IndexServiceTest(unittest.TestCase):
         release_result = service.api_release_input_image(result["input_image_id"])
         self.assertTrue(release_result["success"])
         self.assertNotIn(result["input_image_id"], service._pending_input_images)
+
+    def test_accepts_legacy_single_input_image_id(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        service = self.create_service(config)
+        registered = service.api_register_input_image({
+            "filename": "source.png",
+            "source": "drop",
+            "mime_type": "image/png",
+            "image_base64": self.create_png_base64(),
+        })
+
+        resolved = service.resolve_input_images({
+            "input_image_id": registered["input_image_id"],
+        })
+
+        self.assertEqual(
+            [registered["input_image_id"]],
+            [image["id"] for image in resolved],
+        )
 
     @patch("services.index_service.copy_image_to_clipboard")
     def test_copies_generated_image_to_clipboard(self, copy_image):
@@ -259,7 +278,7 @@ class IndexServiceTest(unittest.TestCase):
             {
                 "size": config.model["size"],
                 "quality": config.model["quality"],
-                "input_image_id": registered["input_image_id"],
+                "input_image_ids": [registered["input_image_id"]],
             },
         )
 
@@ -267,13 +286,74 @@ class IndexServiceTest(unittest.TestCase):
             "edit this image",
             size=config.model["size"],
             quality=config.model["quality"],
-            input_image_path=pending_path,
+            input_image_paths=[pending_path],
         )
         self.assertEqual("source.png", result["input_images"][0]["original_name"])
         self.assertNotIn(registered["input_image_id"], service._pending_input_images)
         log.assert_called_once()
 
-    def test_regenerates_with_original_prompt_and_input_image(self):
+    @patch("services.index_service.ImageGenerationLogger.log")
+    @patch.object(Config, "save")
+    def test_generates_edit_with_two_registered_input_images(self, config_save, log):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        session.save_to_file = Mock(return_value=True)
+        service = self.create_service(config, session_manager)
+        registered_images = [
+            service.api_register_input_image({
+                "filename": filename,
+                "source": "drop",
+                "mime_type": "image/png",
+                "image_base64": self.create_png_base64(),
+            })
+            for filename in ("first.png", "second.png")
+        ]
+        input_ids = [image["input_image_id"] for image in registered_images]
+        pending_paths = [
+            service._pending_input_images[input_id]["path"]
+            for input_id in input_ids
+        ]
+        service.gen_image = Mock(return_value=("aW1hZ2U=", "", 1.25))
+        service.save_image = Mock(return_value="images/generated.png")
+        service.save_resized_image = Mock(return_value="images/generated_thumbnail.png")
+        service.persist_input_image = Mock(side_effect=[
+            {"original_name": "first.png"},
+            {"original_name": "second.png"},
+        ])
+
+        result = service.api_gen_image(
+            "edit the first image using the second image",
+            {
+                "size": config.model["size"],
+                "quality": config.model["quality"],
+                "input_image_ids": input_ids,
+            },
+        )
+
+        service.gen_image.assert_called_once_with(
+            "edit the first image using the second image",
+            size=config.model["size"],
+            quality=config.model["quality"],
+            input_image_paths=pending_paths,
+        )
+        self.assertEqual(
+            ["first.png", "second.png"],
+            [image["original_name"] for image in result["input_images"]],
+        )
+        self.assertTrue(
+            all(input_id not in service._pending_input_images for input_id in input_ids)
+        )
+        log.assert_called_once()
+
+    def test_rejects_more_than_two_input_images(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        service = self.create_service(config)
+
+        with self.assertRaisesRegex(ValueError, "入力画像は最大2枚までです"):
+            service.resolve_input_images({"input_image_ids": ["one", "two", "three"]})
+
+    def test_regenerates_with_original_prompt_and_input_images(self):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")
         session_manager = SessionManager()
         session = session_manager.create_new_session()
@@ -288,20 +368,29 @@ class IndexServiceTest(unittest.TestCase):
             1.0,
             "generated.png",
             "generated_thumbnail.png",
-            input_images=[{
-                "filename": "input.png",
-                "original_name": "source.png",
-                "source": "drop",
-                "mime_type": "image/png",
-            }],
+            input_images=[
+                {
+                    "filename": "input-1.png",
+                    "original_name": "source-1.png",
+                    "source": "drop",
+                    "mime_type": "image/png",
+                },
+                {
+                    "filename": "input-2.png",
+                    "original_name": "source-2.png",
+                    "source": "drop",
+                    "mime_type": "image/png",
+                },
+            ],
         )
         session.add_entry(original)
         service = self.create_service(config, session_manager)
         service.api_gen_image = Mock(return_value={"id": 2, "success": True})
 
         with tempfile.TemporaryDirectory() as input_dir:
-            input_path = Path(input_dir) / "input.png"
-            input_path.write_bytes(base64.b64decode(self.create_png_base64()))
+            for filename in ("input-1.png", "input-2.png"):
+                input_path = Path(input_dir) / filename
+                input_path.write_bytes(base64.b64decode(self.create_png_base64()))
             with patch("services.index_service.INPUT_IMAGE_DIR", input_dir):
                 result = service.api_regenerate_image(
                     original.id,
@@ -309,6 +398,7 @@ class IndexServiceTest(unittest.TestCase):
                         "size": "1536x1024",
                         "quality": "high",
                         "input_image_id": "unrelated-pending-image",
+                        "input_image_ids": ["another-unrelated-image"],
                     },
                 )
 
@@ -317,8 +407,15 @@ class IndexServiceTest(unittest.TestCase):
         self.assertEqual("original prompt", prompt)
         self.assertEqual("1536x1024", options["size"])
         self.assertEqual("high", options["quality"])
-        self.assertNotEqual("unrelated-pending-image", options["input_image_id"])
-        self.assertNotIn(options["input_image_id"], service._pending_input_images)
+        self.assertNotIn("input_image_id", options)
+        self.assertEqual(2, len(options["input_image_ids"]))
+        self.assertNotEqual(["another-unrelated-image"], options["input_image_ids"])
+        self.assertTrue(
+            all(
+                input_id not in service._pending_input_images
+                for input_id in options["input_image_ids"]
+            )
+        )
 
     def test_regeneration_without_original_input_ignores_pending_input(self):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")
@@ -351,6 +448,7 @@ class IndexServiceTest(unittest.TestCase):
 
         _, options = service.api_gen_image.call_args.args
         self.assertNotIn("input_image_id", options)
+        self.assertNotIn("input_image_ids", options)
 
     def test_regeneration_fails_when_original_input_file_is_missing(self):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")

@@ -4,6 +4,8 @@
 # このソースコードは MITライセンス の下でライセンスされています。
 # ライセンスの詳細については、このプロジェクトのLICENSEファイルを参照してください。
 
+from contextlib import ExitStack
+
 from openai import OpenAI
 
 MODEL_VARIANT_FLARE = "flare"
@@ -76,14 +78,22 @@ class GPTImageClient:
     def edit_image(
         self,
         prompt: str,
-        image_path: str,
+        image_paths: str | list[str],
         size: str = IMAGE_SIZE_AUTO,
         quality: str = IMAGE_QUALITY_AUTO,
     ) -> tuple[str, str]:
-        with open(image_path, "rb") as input_image:
+        paths = [image_paths] if isinstance(image_paths, str) else list(image_paths)
+        if not paths:
+            raise ValueError("入力画像が指定されていません。")
+
+        with ExitStack() as stack:
+            input_images = [
+                stack.enter_context(open(image_path, "rb"))
+                for image_path in paths
+            ]
             response = self.client.images.edit(
                 model=self.model,
-                image=input_image,
+                image=input_images[0] if len(input_images) == 1 else input_images,
                 prompt=prompt,
                 size=size,
                 quality=quality,

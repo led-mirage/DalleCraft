@@ -23,19 +23,36 @@ class ImageGenerationLogger:
         success_flag = "Success" if entry.success else "Failure"
         generation_mode = "edit" if entry.input_images else "generate"
         if entry.input_images:
-            input_image = entry.input_images[0]
-            input_filename = input_image.get("filename", "")
-            original_size = cls._format_dimensions(
-                input_image.get("original_width"),
-                input_image.get("original_height"),
+            input_filename = ",".join(
+                input_image.get("filename", "")
+                for input_image in entry.input_images
             )
-            sent_size = cls._format_dimensions(
-                input_image.get("width"),
-                input_image.get("height"),
+            original_size = ",".join(
+                cls._format_dimensions(
+                    input_image.get("original_width"),
+                    input_image.get("original_height"),
+                )
+                for input_image in entry.input_images
             )
-            original_bytes = input_image.get("original_size_bytes", "-")
-            sent_bytes = input_image.get("size_bytes", "-")
-            resized = str(input_image.get("resized", False)).lower()
+            sent_size = ",".join(
+                cls._format_dimensions(
+                    input_image.get("width"),
+                    input_image.get("height"),
+                )
+                for input_image in entry.input_images
+            )
+            original_bytes = ",".join(
+                str(input_image.get("original_size_bytes", "-"))
+                for input_image in entry.input_images
+            )
+            sent_bytes = ",".join(
+                str(input_image.get("size_bytes", "-"))
+                for input_image in entry.input_images
+            )
+            resized = ",".join(
+                str(input_image.get("resized", False)).lower()
+                for input_image in entry.input_images
+            )
         else:
             input_filename = "-"
             original_size = "-"

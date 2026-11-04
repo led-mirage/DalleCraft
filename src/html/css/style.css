@@ -187,17 +187,21 @@ body, html {
     resize: none; /* リサイズ無効 */
     height: 4rem; /* 高さの初期値、必要に応じて */
 }
-.input-image-preview {
+.input-image-previews {
+    display: flex;
+    gap: 0.4rem;
+    margin-left: 0.65rem;
+}
+.input-image-previews[hidden] {
+    display: none;
+}
+.input-image-preview-item {
     position: relative;
     flex: 0 0 4.5rem;
     width: 4.5rem;
     height: 4.5rem;
-    margin-left: 0.65rem;
 }
-.input-image-preview[hidden] {
-    display: none;
-}
-.input-image-preview img {
+.input-image-preview-item img {
     width: 100%;
     height: 100%;
     display: block;
@@ -205,7 +209,7 @@ body, html {
     border-radius: 0.5rem;
     cursor: pointer;
 }
-.input-image-preview button {
+.input-image-preview-item button {
     position: absolute;
     top: 0.15rem;
     right: 0.15rem;
@@ -220,6 +224,20 @@ body, html {
     line-height: 1rem;
     cursor: pointer;
     box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+.input-image-preview-badge {
+    position: absolute;
+    left: 0.2rem;
+    bottom: 0.2rem;
+    min-width: 1rem;
+    padding: 0.1rem 0.2rem;
+    border-radius: 0.2rem;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.65);
+    font-size: 0.65rem;
+    line-height: 1;
+    text-align: center;
+    pointer-events: none;
 }
 .prompt-area > #submit-button {
     width: 8rem;
@@ -614,6 +632,12 @@ pre {
 .prompt-image-card .prompt-text {
     min-width: 0;
     overflow-wrap: anywhere;
+}
+
+.input-references {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0.35rem;
 }
 
 .input-reference {

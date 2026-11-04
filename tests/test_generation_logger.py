@@ -11,7 +11,7 @@ from session import SessionEntry
 
 class ImageGenerationLoggerTest(unittest.TestCase):
     @patch("generation_logger.open", new_callable=mock_open)
-    def test_logs_edit_mode_and_input_filename(self, file_open):
+    def test_logs_edit_mode_and_input_images(self, file_open):
         entry = SessionEntry(
             "prompt",
             "",
@@ -23,24 +23,37 @@ class ImageGenerationLoggerTest(unittest.TestCase):
             1.25,
             "generated.png",
             "generated_thumbnail.png",
-            input_images=[{
-                "filename": "input.png",
-                "original_width": 3000,
-                "original_height": 300,
-                "width": 2048,
-                "height": 205,
-                "original_size_bytes": 25000000,
-                "size_bytes": 1200000,
-                "resized": True,
-            }],
+            input_images=[
+                {
+                    "filename": "input-1.png",
+                    "original_width": 3000,
+                    "original_height": 300,
+                    "width": 2048,
+                    "height": 205,
+                    "original_size_bytes": 25000000,
+                    "size_bytes": 1200000,
+                    "resized": True,
+                },
+                {
+                    "filename": "input-2.png",
+                    "original_width": 800,
+                    "original_height": 600,
+                    "width": 800,
+                    "height": 600,
+                    "original_size_bytes": 300000,
+                    "size_bytes": 300000,
+                    "resized": False,
+                },
+            ],
         )
 
         ImageGenerationLogger.log(entry)
 
         written = file_open().write.call_args.args[0]
         self.assertTrue(written.endswith(
-            "\tgenerated.png\tedit\tinput.png\t3000x300\t2048x205\t"
-            "25000000\t1200000\ttrue\n"
+            "\tgenerated.png\tedit\tinput-1.png,input-2.png\t"
+            "3000x300,800x600\t2048x205,800x600\t"
+            "25000000,300000\t1200000,300000\ttrue,false\n"
         ))
 
     @patch("generation_logger.open", new_callable=mock_open)

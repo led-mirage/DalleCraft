@@ -35,7 +35,7 @@ OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとG
 - テキストプロンプトからGPT Image 2.5による画像を生成
 - GPT Image 2.5 FlareとGPT Image 2.5 Sunburstを切り替えて利用可能
 - OpenAI APIとMicrosoft Foundryに対応
-- `Ctrl+V`またはドラッグ＆ドロップで参照画像を添付した画像生成に対応
+- `Ctrl+V`またはドラッグ＆ドロップで参照画像を最大2枚添付した画像生成に対応
 - メイン画面から解像度と画質を変更できるクイック設定
 - 生成画像の右クリックメニューから画像をクリップボードへコピー
 - 元のプロンプトと参照画像を使った画像の再作成
@@ -128,7 +128,7 @@ GPT Image API利用料金は[OpenAIの公式サイト](https://developers.openai
 
 入力・画像出力トークン等に応じて課金され、モデル、画像サイズ、品質によって料金が異なります。
 
-参照画像を添付した場合、その画像は選択中のOpenAI APIまたはMicrosoft Foundryのエンドポイントへ送信され、入力画像にも料金が発生します。過大な料金を防ぐため、添付できる画像は20MB未満に制限し、長辺が2048pxを超える場合は送信前に自動縮小します。
+参照画像を添付した場合、その画像は選択中のOpenAI APIまたはMicrosoft Foundryのエンドポイントへ送信され、入力画像にも料金が発生します。参照画像は最大2枚まで添付でき、各画像を20MB未満に制限しています。長辺が2048pxを超える場合は送信前に自動縮小します。
 
 添付した画像はセッション履歴から再表示できるように、縮小後の画像をローカルの`logs/input-images`フォルダへ保存します。生成画像は`images`フォルダ、セッション情報は`logs`フォルダへ保存します。
 
@@ -142,9 +142,9 @@ GPT Image API利用料金は[OpenAIの公式サイト](https://developers.openai
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/42bbddf5686c853351df5b70d4b78fcc8dc6f7b487b5f18e41842fc653399923/detection)で確認できます（2026/11/04 v2.2.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/686b7dbe9e659c138bb5a3c7b13d0a7505a39c7573a734475ae08c79937c8235/detection)で確認できます（2026/11/04 v2.3.0）
 
-60個中2個のアンチウィルスエンジンで検出
+69個中2個のアンチウィルスエンジンで検出
 
 <div class="page"/>
 
@@ -189,6 +189,10 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 <div class="page"/>
 
 ## 💎 バージョン履歴
+
+### 2.3.0 (2026/11/05)
+
+- 参照画像を最大2枚まで添付できるように変更
 
 ### 2.2.0 (2026/11/04)
 
