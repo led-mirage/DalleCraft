@@ -6,6 +6,7 @@
 
 from app_window import AppWindow
 from config import Config
+from image_options import normalize_image_size
 
 CONFIG_FILE = "config.json"
 
@@ -33,7 +34,12 @@ class ConfigService:
         self.config.foundry["flare_deployment"] = config_dict["foundry"]["flare_deployment"]
         self.config.foundry["sunburst_deployment"] = config_dict["foundry"]["sunburst_deployment"]
         self.config.model["variant"] = config_dict["model"]["variant"]
-        self.config.model["size"] = config_dict["model"]["size"]
+        size = normalize_image_size(config_dict["model"]["size"])
+        if size is None:
+            raise ValueError(f"未対応の解像度です: {config_dict['model']['size']}")
+        self.config.model["size"] = size
+        if size not in self.config.model["size_presets"]:
+            self.config.model["size_presets"].append(size)
         self.config.model["quality"] = config_dict["model"]["quality"]
         self.config.save(CONFIG_FILE)
         self.window.open_index_view()

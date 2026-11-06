@@ -65,12 +65,7 @@
     <div class="prompt-panel">
         <div class="quick-settings" aria-label="画像生成のクイック設定">
             <label for="quick-image-size">解像度</label>
-            <select id="quick-image-size" onchange="saveQuickSettings()">
-                <option value="auto">自動</option>
-                <option value="1024x1024">1024 × 1024</option>
-                <option value="1536x1024">1536 × 1024（横長）</option>
-                <option value="1024x1536">1024 × 1536（縦長）</option>
-            </select>
+            <select id="quick-image-size" onchange="saveQuickSettings()"></select>
             <label for="quick-image-quality">品質</label>
             <select id="quick-image-quality" onchange="saveQuickSettings()">
                 <option value="auto">Auto</option>
@@ -130,6 +125,7 @@
     </div>
 </div>
 
+<script src="js/image-size.js"></script>
 <script>
 const MAX_INPUT_IMAGES = 2;
 let pendingInputImages = [];
@@ -320,9 +316,12 @@ function initQuickSettings(modelConfig) {
     const sizeSelect = document.getElementById("quick-image-size");
     const qualitySelect = document.getElementById("quick-image-quality");
     const size = modelConfig && modelConfig.size ? modelConfig.size : "auto";
+    const sizePresets = modelConfig && Array.isArray(modelConfig.size_presets)
+        ? modelConfig.size_presets
+        : ["auto"];
     const quality = modelConfig && modelConfig.quality ? modelConfig.quality : "auto";
 
-    sizeSelect.value = Array.from(sizeSelect.options).some(option => option.value === size) ? size : "auto";
+    populateImageSizeSelect(sizeSelect, sizePresets, size);
     qualitySelect.value = Array.from(qualitySelect.options).some(option => option.value === quality) ? quality : "auto";
 }
 

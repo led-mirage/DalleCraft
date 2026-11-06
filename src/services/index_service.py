@@ -25,6 +25,7 @@ from dalle import GPTImageClient
 from image_clipboard import copy_image_to_clipboard
 from session import LOG_DIR, SessionManager, SessionEntry, Session
 from generation_logger import ImageGenerationLogger
+from image_options import normalize_image_size
 
 INPUT_IMAGE_DIR = os.path.join(LOG_DIR, "input-images")
 
@@ -37,12 +38,6 @@ class IndexService:
         "PNG": (".png", "image/png"),
         "JPEG": (".jpg", "image/jpeg"),
         "WEBP": (".webp", "image/webp"),
-    }
-    VALID_IMAGE_SIZES = {
-        "auto",
-        "1024x1024",
-        "1536x1024",
-        "1024x1536",
     }
     VALID_IMAGE_QUALITIES = {
         "auto",
@@ -98,22 +93,25 @@ class IndexService:
     def resolve_generation_options(self, options: dict | None = None) -> tuple[str, str]:
         configured_size, configured_quality = self.config.get_model_param()
         if options is None:
-            return configured_size, configured_quality
-        if not isinstance(options, dict):
+            options = {}
+        elif not isinstance(options, dict):
             raise ValueError("生成オプションの形式が正しくありません。")
 
         size = options.get("size", configured_size)
         quality = options.get("quality", configured_quality)
-        if size not in self.VALID_IMAGE_SIZES:
+        normalized_size = normalize_image_size(size)
+        if normalized_size is None:
             raise ValueError(f"未対応の解像度です: {size}")
         if quality not in self.VALID_IMAGE_QUALITIES:
             raise ValueError(f"未対応の品質です: {quality}")
-        return size, quality
+        return normalized_size, quality
 
     def update_generation_options(self, size: str, quality: str) -> bool:
         if self.config.get_model_param() == (size, quality):
             return False
         self.config.model["size"] = size
+        if size not in self.config.model["size_presets"]:
+            self.config.model["size_presets"].append(size)
         self.config.model["quality"] = quality
         self.config.save(CONFIG_FILE)
         return True

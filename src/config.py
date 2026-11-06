@@ -6,6 +6,12 @@
 
 import json
 
+from image_options import (
+    DEFAULT_IMAGE_SIZE_PRESETS,
+    normalize_image_size,
+    normalize_image_size_presets,
+)
+
 
 class Config:
     FILE_VERSION = "3.0"
@@ -31,7 +37,8 @@ class Config:
         self.model = {
             "variant": None,
             "size": None,
-            "quality": None
+            "quality": None,
+            "size_presets": []
         }
         self.system = {
             "window_width": None,
@@ -72,9 +79,15 @@ class Config:
             self.model["variant"] = variant if variant in ("flare", "sunburst") else self.DEFAULT_VARIANT
 
             if "size" in model_data:
-                self.model["size"] = model_data["size"]
+                size = model_data["size"]
             else:
-                self.model["size"] = model_data.get("gptimage1", {}).get("size", self.DEFAULT_SIZE)
+                size = model_data.get("gptimage1", {}).get("size", self.DEFAULT_SIZE)
+            self.model["size"] = normalize_image_size(size) or self.DEFAULT_SIZE
+
+            size_presets = model_data.get("size_presets", DEFAULT_IMAGE_SIZE_PRESETS)
+            self.model["size_presets"] = normalize_image_size_presets(size_presets)
+            if self.model["size"] not in self.model["size_presets"]:
+                self.model["size_presets"].append(self.model["size"])
 
             if "quality" in model_data:
                 quality = model_data["quality"]
