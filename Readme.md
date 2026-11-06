@@ -107,6 +107,12 @@ OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとG
 - 使用する環境変数名はアプリの設定画面から変更できます。
 - アプリの設定画面でFlareとSunburstのデプロイ名を設定してください。
 
+### 📌 画像サイズのプリセット
+
+メイン画面と設定画面に表示する画像サイズは、`config.json`の`model.size_presets`で変更できます。`auto`または`WIDTHxHEIGHT`形式で指定してください。重複やGPT Image 2.5の制約に合わない値は読み込み時に除外されます。
+
+幅と高さは16の倍数、アスペクト比は1:3から3:1、各辺は3840px以下、総画素数は655,360から8,294,400の範囲で指定する必要があります。設定を変更した場合はDalleCraftを再起動してください。
+
 <div class="page"/>
 
 ## 💎 実行方法
@@ -142,9 +148,9 @@ GPT Image API利用料金は[OpenAIの公式サイト](https://developers.openai
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/686b7dbe9e659c138bb5a3c7b13d0a7505a39c7573a734475ae08c79937c8235/detection)で確認できます（2026/11/04 v2.3.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/1651661198b3ab603ec4fe9071658bc1613750a1563defc9896b46502830aa5f/detection)で確認できます（2026/11/06 v2.4.0）
 
-69個中2個のアンチウィルスエンジンで検出
+67個中2個のアンチウィルスエンジンで検出
 
 <div class="page"/>
 
@@ -189,6 +195,11 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 <div class="page"/>
 
 ## 💎 バージョン履歴
+
+### 2.4.0 (2026/11/07)
+
+- GPT Image 2.5の解像度プリセットを追加
+- 解像度プリセットを`config.json`から変更できるように改善
 
 ### 2.3.0 (2026/11/05)
 

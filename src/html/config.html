@@ -41,6 +41,16 @@
             font-size: 0.9rem;
             margin: 0.5rem 0 0;
         }
+
+        #image-size-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+            gap: 0.35rem 1rem;
+        }
+
+        .image-size-option label {
+            margin-left: 0.2rem;
+        }
     </style>
 </head>
 <body>
@@ -107,16 +117,7 @@
         </div>
         <div class="category">
             <h3>画像サイズ</h3>
-            <div class="setting-group">
-                <input type="radio" id="optionSizeAuto" name="imageSize" value="auto" checked>
-                <label for="optionSizeAuto">自動</label>
-                <input type="radio" id="optionSizeSquare" name="imageSize" value="1024x1024">
-                <label for="optionSizeSquare">1024x1024</label>
-                <input type="radio" id="optionSizeLandscape" name="imageSize" value="1536x1024">
-                <label for="optionSizeLandscape">1536x1024</label>
-                <input type="radio" id="optionSizePortrait" name="imageSize" value="1024x1536">
-                <label for="optionSizePortrait">1024x1536</label>
-            </div>
+            <div class="setting-group" id="image-size-options"></div>
         </div>
         <div class="category">
             <h3>画質</h3>
@@ -139,6 +140,7 @@
     <div style="height: 1em;"></div>
     <footer><span id="copyright">Copyright</span></footer>
 </div>
+<script src="js/image-size.js"></script>
 <script>
 window.addEventListener("DOMContentLoaded", function() {
     const apiTypeRadioButtons = document.querySelectorAll('input[name="apiType"]');
@@ -187,7 +189,11 @@ async function initComponents() {
     document.getElementById("foundrySunburstDeployment").value = config.foundry.sunburst_deployment;
 
     setRadioValue("modelVariant", config.model.variant, "flare");
-    setRadioValue("imageSize", config.model.size, "auto");
+    populateImageSizeRadios(
+        document.getElementById("image-size-options"),
+        config.model.size_presets,
+        config.model.size
+    );
     setRadioValue("imageQuality", config.model.quality, "auto");
 }
 

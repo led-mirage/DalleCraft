@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from config import Config
+from image_options import DEFAULT_IMAGE_SIZE_PRESETS
 
 
 class ConfigTest(unittest.TestCase):
@@ -40,6 +41,10 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual("foundry", config.api_type)
         self.assertEqual("sunburst-production", config.get_model_name())
         self.assertEqual(("1536x1024", "xhigh"), config.get_model_param())
+        self.assertEqual(
+            list(DEFAULT_IMAGE_SIZE_PRESETS),
+            config.model["size_presets"],
+        )
 
         config.api_type = "openai"
         self.assertEqual("gpt-image-2.5-sunburst", config.get_model_name())
@@ -84,6 +89,50 @@ class ConfigTest(unittest.TestCase):
         self.assertIn("foundry", saved)
         self.assertNotIn("azure", saved)
         self.assertNotIn("gptimage1", saved["model"])
+
+    def test_loads_custom_size_presets_and_filters_invalid_values(self):
+        data = {
+            "version": "3.0",
+            "model": {
+                "variant": "flare",
+                "size": "1536 × 864",
+                "quality": "auto",
+                "size_presets": [
+                    "auto",
+                    "1536 × 864",
+                    "1536x864",
+                    "1920x1080",
+                ],
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            config = Config(self.write_config(directory, data))
+
+        self.assertEqual("1536x864", config.model["size"])
+        self.assertEqual(
+            ["auto", "1536x864"],
+            config.model["size_presets"],
+        )
+
+    def test_adds_valid_selected_size_to_presets(self):
+        data = {
+            "version": "3.0",
+            "model": {
+                "variant": "flare",
+                "size": "2048x2048",
+                "quality": "auto",
+                "size_presets": ["auto", "1024x1024"],
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            config = Config(self.write_config(directory, data))
+
+        self.assertEqual(
+            ["auto", "1024x1024", "2048x2048"],
+            config.model["size_presets"],
+        )
 
 
 if __name__ == "__main__":

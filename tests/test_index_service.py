@@ -116,6 +116,30 @@ class IndexServiceTest(unittest.TestCase):
         self.assertEqual("max", config.model["quality"])
         config_save.assert_called_once_with("config.json")
 
+    def test_accepts_valid_custom_image_size(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        service = self.create_service(config)
+
+        self.assertEqual(
+            ("1536x864", "auto"),
+            service.resolve_generation_options(
+                {"size": "1536 × 864", "quality": "auto"}
+            ),
+        )
+
+    @patch.object(Config, "save")
+    def test_adds_selected_custom_size_to_presets(self, config_save):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        service = self.create_service(config)
+
+        result = service.api_update_generation_options(
+            {"size": "1536x864", "quality": "auto"}
+        )
+
+        self.assertTrue(result["success"])
+        self.assertIn("1536x864", config.model["size_presets"])
+        config_save.assert_called_once_with("config.json")
+
     def test_registers_and_releases_pasted_image(self):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")
         service = self.create_service(config)

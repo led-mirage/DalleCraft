@@ -24,6 +24,16 @@ class ConfigHtmlTest(unittest.TestCase):
 
         self.assertEqual(references - parser.ids, set())
 
+    def test_builds_image_size_options_from_config(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "config.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('id="image-size-options"', source)
+        self.assertIn('src="js/image-size.js"', source)
+        self.assertIn("populateImageSizeRadios(", source)
+        self.assertIn("config.model.size_presets", source)
+
 
 class IndexHtmlTest(unittest.TestCase):
     def test_quick_setting_elements_exist(self):
@@ -38,6 +48,24 @@ class IndexHtmlTest(unittest.TestCase):
         self.assertIn("current-api-type", parser.ids)
         self.assertIn("prompt-input-container", parser.ids)
         self.assertIn("input-image-previews", parser.ids)
+
+    def test_builds_image_size_options_from_config(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('src="js/image-size.js"', source)
+        self.assertIn("populateImageSizeSelect(sizeSelect, sizePresets, size)", source)
+        self.assertIn("modelConfig.size_presets", source)
+
+    def test_formats_image_size_labels_dynamically(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "js" / "image-size.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("function formatImageSizeLabel(size)", source)
+        self.assertIn('width > height ? "横長" : "縦長"', source)
+        self.assertIn("imageSizeGreatestCommonDivisor(width, height)", source)
 
     def test_quick_quality_labels_are_english(self):
         source = (
