@@ -8,7 +8,7 @@ Copyright (c) 2025-2026 led-mirage
 
 ## 💎 スクリーンショット
 
-<img src="doc/screenshot_2.1.0.png" width="600">
+<img src="doc/screenshot_2.5.0.png" width="600">
 
 <div class="page"/>
 
@@ -45,5 +45,7 @@ DalleCraft.exeをダブルクリックして起動します。
 GPT Image API利用料金は[OpenAIの公式サイト](https://developers.openai.com/api/docs/pricing)でご確認ください。
 
 入力・画像出力トークン等に応じて課金され、モデル、画像サイズ、品質によって料金が異なります。
+
+生成画像を右クリックして「画像情報を表示」を選ぶと、使用トークン数と概算料金を確認できます。概算に使用する単価は`pricing.json`で変更でき、変更後はDalleCraftを再起動してください。Microsoft FoundryにはGlobal Standardの公開料金を基にした概算単価を初期設定していますが、実際の契約やリージョンと異なる場合は変更してください。
 
 参照画像を添付した場合は、入力画像にも料金が発生します。最大2枚まで添付でき、各画像はPNG、JPEG、WebP形式の20MB未満のファイルにしてください。長辺が2048pxを超える画像は、送信前に縦横比を維持して自動縮小します。

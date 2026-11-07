@@ -1,0 +1,26 @@
+{
+    "version": "1.0",
+    "currency": "USD",
+    "tokens_per_price_unit": 1000000,
+    "providers": {
+        "openai": {
+            "gpt-image-2.5-flare": {
+                "text_input": 5.0,
+                "image_input": 8.0,
+                "image_output": 30.0
+            },
+            "gpt-image-2.5-sunburst": {
+                "text_input": 5.0,
+                "image_input": 8.0,
+                "image_output": 30.0
+            }
+        },
+        "foundry": {
+            "*": {
+                "text_input": 5.0,
+                "image_input": 8.0,
+                "image_output": 30.0
+            }
+        }
+    }
+}

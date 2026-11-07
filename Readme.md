@@ -18,13 +18,14 @@ OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとG
 
 ## 💎 スクリーンショット
 
-<img src="doc/screenshot_2.1.0.png" width="550"><br>
-<img src="doc/screenshot_2.0.0_settings.png" width="550"><br>
+<img src="doc/screenshot_2.5.0.png" width="550"><br>
+<img src="doc/screenshot_2.5.0_settings.png" width="550"><br>
 
 ### 🖼️ 作例
 
 <div class="page"/>
-<img src="doc/generated_image_2.1.0.png" width="550"><br>
+<img src="doc/generated_image_2.5.0.png" width="550"><br>
+※ 解像度：2048 x 1152、品質：Max
 
 ## 💎 特徴
 
@@ -134,6 +135,24 @@ GPT Image API利用料金は[OpenAIの公式サイト](https://developers.openai
 
 入力・画像出力トークン等に応じて課金され、モデル、画像サイズ、品質によって料金が異なります。
 
+画像生成後、画像を右クリックして「画像情報を表示」を選ぶと、APIレスポンスに含まれる入力・出力・合計トークン数と概算料金を確認できます。概算料金は生成時点の単価とともにセッションへ保存されます。メイン画面には現在表示中のセッションの積算料金も控えめに表示され、マウスを重ねると正確な値と集計件数を確認できます。
+
+概算料金の単価は、`config.json`とは別の`pricing.json`で管理します。`tokens_per_price_unit`は各単価が何トークン当たりかを表し、初期値は100万トークンです。`providers`以下へAPIタイプ、モデル名、テキスト入力・画像入力・画像出力の単価を設定してください。変更はDalleCraftの再起動後に反映されます。
+
+Microsoft Foundryには、Global Standardの公開料金を基にした概算単価を`"*"`で初期設定しています。契約やリージョン等によって実際の料金が異なる場合は、デプロイ名ごとの設定を追加するか、`"*"`の値を変更してください。
+
+```json
+"foundry": {
+    "*": {
+        "text_input": 5.0,
+        "image_input": 8.0,
+        "image_output": 30.0
+    }
+}
+```
+
+表示される料金は`pricing.json`の値を使った概算であり、実際の請求額を保証するものではありません。APIからトークン情報が返らなかった場合や、利用中のモデルに単価が設定されていない場合は算出されません。
+
 参照画像を添付した場合、その画像は選択中のOpenAI APIまたはMicrosoft Foundryのエンドポイントへ送信され、入力画像にも料金が発生します。参照画像は最大2枚まで添付でき、各画像を20MB未満に制限しています。長辺が2048pxを超える場合は送信前に自動縮小します。
 
 添付した画像はセッション履歴から再表示できるように、縮小後の画像をローカルの`logs/input-images`フォルダへ保存します。生成画像は`images`フォルダ、セッション情報は`logs`フォルダへ保存します。
@@ -148,9 +167,9 @@ GPT Image API利用料金は[OpenAIの公式サイト](https://developers.openai
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/1651661198b3ab603ec4fe9071658bc1613750a1563defc9896b46502830aa5f/detection)で確認できます（2026/11/06 v2.4.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/ee76b6ab5e92e9822ce21e193a68cac3bd466ee1db97d66c7cb8cad5933e3698/detection)で確認できます（2026/11/07 v2.5.0）
 
-67個中2個のアンチウィルスエンジンで検出
+70個中2個のアンチウィルスエンジンで検出
 
 <div class="page"/>
 
@@ -195,6 +214,12 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 <div class="page"/>
 
 ## 💎 バージョン履歴
+
+### 2.5.0 (2026/11/07)
+
+- 画像生成に使用したトークン数を画像情報に表示
+- `pricing.json`の単価を使った概算料金の表示に対応
+- セッションごとの積算料金をメイン画面へ表示
 
 ### 2.4.0 (2026/11/07)
 

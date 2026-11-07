@@ -27,6 +27,40 @@ IMAGE_QUALITY_MAX = "max"
 IMAGE_QUALITY_AUTO = "auto"
 
 
+def _get_response_value(value, name, default=None):
+    if isinstance(value, dict):
+        return value.get(name, default)
+    return getattr(value, name, default)
+
+
+def extract_token_usage(response) -> dict:
+    usage = _get_response_value(response, "usage")
+    if usage is None:
+        return {}
+
+    token_usage = {
+        "input_tokens": _get_response_value(usage, "input_tokens", 0),
+        "output_tokens": _get_response_value(usage, "output_tokens", 0),
+        "total_tokens": _get_response_value(usage, "total_tokens", 0),
+    }
+
+    input_details = _get_response_value(usage, "input_tokens_details")
+    if input_details is not None:
+        token_usage["input_tokens_details"] = {
+            "text_tokens": _get_response_value(input_details, "text_tokens", 0),
+            "image_tokens": _get_response_value(input_details, "image_tokens", 0),
+        }
+
+    output_details = _get_response_value(usage, "output_tokens_details")
+    if output_details is not None:
+        token_usage["output_tokens_details"] = {
+            "text_tokens": _get_response_value(output_details, "text_tokens", 0),
+            "image_tokens": _get_response_value(output_details, "image_tokens", 0),
+        }
+
+    return token_usage
+
+
 def get_openai_model_name(variant: str) -> str:
     if variant == MODEL_VARIANT_SUNBURST:
         return MODEL_NAME_SUNBURST
@@ -56,7 +90,7 @@ class GPTImageClient:
         prompt: str,
         size: str = IMAGE_SIZE_AUTO,
         quality: str = IMAGE_QUALITY_AUTO,
-    ) -> tuple[str, str]:
+    ) -> tuple[str, str, dict]:
         response = self.client.images.generate(
             model=self.model,
             prompt=prompt,
@@ -73,7 +107,7 @@ class GPTImageClient:
         # GPT Image models do not return revised_prompt. Keep the field empty
         # so existing session log files remain compatible.
         revised_prompt = getattr(image, "revised_prompt", None) or ""
-        return image.b64_json, revised_prompt
+        return image.b64_json, revised_prompt, extract_token_usage(response)
 
     def edit_image(
         self,
@@ -81,7 +115,7 @@ class GPTImageClient:
         image_paths: str | list[str],
         size: str = IMAGE_SIZE_AUTO,
         quality: str = IMAGE_QUALITY_AUTO,
-    ) -> tuple[str, str]:
+    ) -> tuple[str, str, dict]:
         paths = [image_paths] if isinstance(image_paths, str) else list(image_paths)
         if not paths:
             raise ValueError("入力画像が指定されていません。")
@@ -106,4 +140,4 @@ class GPTImageClient:
             raise ValueError("画像編集APIから画像データが返されませんでした。")
 
         revised_prompt = getattr(image, "revised_prompt", None) or ""
-        return image.b64_json, revised_prompt
+        return image.b64_json, revised_prompt, extract_token_usage(response)
