@@ -30,6 +30,8 @@ class SessionEntryTest(unittest.TestCase):
         entry = SessionEntry.from_dict(self.create_entry_data())
 
         self.assertEqual([], entry.input_images)
+        self.assertEqual({}, entry.token_usage)
+        self.assertIsNone(entry.cost_estimate)
 
     def test_round_trips_input_image_metadata(self):
         data = self.create_entry_data()
@@ -52,6 +54,33 @@ class SessionEntryTest(unittest.TestCase):
         serialized = entry.to_dict()
 
         self.assertEqual(data["input_images"], serialized["input_images"])
+
+    def test_round_trips_token_usage_and_cost_estimate(self):
+        data = self.create_entry_data()
+        data["token_usage"] = {
+            "input_tokens": 10,
+            "output_tokens": 1000,
+            "total_tokens": 1010,
+            "input_tokens_details": {
+                "text_tokens": 10,
+                "image_tokens": 0,
+            },
+        }
+        data["cost_estimate"] = {
+            "currency": "USD",
+            "amount": 0.03005,
+            "tokens_per_price_unit": 1000000,
+            "rates": {
+                "text_input": 5.0,
+                "image_input": 8.0,
+                "image_output": 30.0,
+            },
+        }
+
+        serialized = SessionEntry.from_dict(data).to_dict()
+
+        self.assertEqual(data["token_usage"], serialized["token_usage"])
+        self.assertEqual(data["cost_estimate"], serialized["cost_estimate"])
 
 
 if __name__ == "__main__":

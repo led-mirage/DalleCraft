@@ -65,7 +65,18 @@ class IndexServiceTest(unittest.TestCase):
         session = session_manager.create_new_session()
         session.save_to_file = Mock(return_value=True)
         service = self.create_service(config, session_manager)
-        service.gen_image = Mock(return_value=("aW1hZ2U=", "", 1.25))
+        token_usage = {
+            "input_tokens": 10,
+            "output_tokens": 1000,
+            "total_tokens": 1010,
+            "input_tokens_details": {
+                "text_tokens": 10,
+                "image_tokens": 0,
+            },
+        }
+        service.gen_image = Mock(
+            return_value=("aW1hZ2U=", "", 1.25, token_usage)
+        )
         service.save_image = Mock(return_value="images/generated.png")
         service.save_resized_image = Mock(return_value="images/generated_thumbnail.png")
 
@@ -85,6 +96,9 @@ class IndexServiceTest(unittest.TestCase):
         self.assertEqual("high", config.model["quality"])
         self.assertEqual("1536x1024", result["image_size"])
         self.assertEqual("high", result["image_quality"])
+        self.assertEqual(token_usage, result["token_usage"])
+        self.assertEqual("USD", result["cost_estimate"]["currency"])
+        self.assertAlmostEqual(0.03005, result["cost_estimate"]["amount"])
         log.assert_called_once()
 
     @patch.object(Config, "save")
@@ -286,7 +300,7 @@ class IndexServiceTest(unittest.TestCase):
             "image_base64": self.create_png_base64(),
         })
         pending_path = service._pending_input_images[registered["input_image_id"]]["path"]
-        service.gen_image = Mock(return_value=("aW1hZ2U=", "", 1.25))
+        service.gen_image = Mock(return_value=("aW1hZ2U=", "", 1.25, {}))
         service.save_image = Mock(return_value="images/generated.png")
         service.save_resized_image = Mock(return_value="images/generated_thumbnail.png")
         service.persist_input_image = Mock(return_value={
@@ -338,7 +352,7 @@ class IndexServiceTest(unittest.TestCase):
             service._pending_input_images[input_id]["path"]
             for input_id in input_ids
         ]
-        service.gen_image = Mock(return_value=("aW1hZ2U=", "", 1.25))
+        service.gen_image = Mock(return_value=("aW1hZ2U=", "", 1.25, {}))
         service.save_image = Mock(return_value="images/generated.png")
         service.save_resized_image = Mock(return_value="images/generated_thumbnail.png")
         service.persist_input_image = Mock(side_effect=[

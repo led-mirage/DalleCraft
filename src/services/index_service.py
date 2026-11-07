@@ -18,7 +18,7 @@ from datetime import datetime
 import openai
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from app_const import APP_NAME, CONFIG_FILE, IMAGE_DIR
+from app_const import APP_NAME, CONFIG_FILE, IMAGE_DIR, PRICING_FILE
 from app_window import AppWindow
 from config import Config
 from dalle import GPTImageClient
@@ -26,6 +26,7 @@ from image_clipboard import copy_image_to_clipboard
 from session import LOG_DIR, SessionManager, SessionEntry, Session
 from generation_logger import ImageGenerationLogger
 from image_options import normalize_image_size
+from pricing import PricingConfig
 
 INPUT_IMAGE_DIR = os.path.join(LOG_DIR, "input-images")
 
@@ -48,10 +49,23 @@ class IndexService:
         "max",
     }
 
-    def __init__(self, window: AppWindow, config: Config, session_manager: SessionManager):
+    def __init__(
+        self,
+        window: AppWindow,
+        config: Config,
+        session_manager: SessionManager,
+        pricing: PricingConfig | None = None,
+    ):
         self.window = window
         self.config = config
         self.session_manager = session_manager
+        if pricing is None:
+            try:
+                pricing = PricingConfig(PRICING_FILE)
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                print(f"料金設定ファイルの読み込みエラー: {error}")
+                pricing = PricingConfig()
+        self.pricing = pricing
         self._input_image_temp_dir = tempfile.TemporaryDirectory(prefix="dallecraft-input-")
         self._pending_input_images: dict[str, dict] = {}
 
@@ -66,7 +80,7 @@ class IndexService:
         size: str | None = None,
         quality: str | None = None,
         input_image_paths: list[str] | None = None,
-    ) -> tuple[str, str, float]:
+    ) -> tuple[str, str, float, dict]:
         start_time = time.time()
         image_client = self.create_image_client()
 
@@ -74,21 +88,21 @@ class IndexService:
         size = configured_size if size is None else size
         quality = configured_quality if quality is None else quality
         if input_image_paths:
-            image_b64, revised_prompt = image_client.edit_image(
+            image_b64, revised_prompt, token_usage = image_client.edit_image(
                 prompt,
                 input_image_paths,
                 size=size,
                 quality=quality,
             )
         else:
-            image_b64, revised_prompt = image_client.gen_image(
+            image_b64, revised_prompt, token_usage = image_client.gen_image(
                 prompt,
                 size=size,
                 quality=quality,
             )
 
         elapsed_time = time.time() - start_time
-        return image_b64, revised_prompt, elapsed_time
+        return image_b64, revised_prompt, elapsed_time, token_usage
 
     def resolve_generation_options(self, options: dict | None = None) -> tuple[str, str]:
         configured_size, configured_quality = self.config.get_model_param()
@@ -491,7 +505,7 @@ class IndexService:
             pending_input_images = self.resolve_input_images(options)
             if options is not None:
                 self.update_generation_options(image_size, image_quality)
-            image_b64, revised_prompt, elapsed_time = self.gen_image(
+            image_b64, revised_prompt, elapsed_time, token_usage = self.gen_image(
                 prompt,
                 size=image_size,
                 quality=image_quality,
@@ -499,6 +513,11 @@ class IndexService:
                     pending_input_image["path"]
                     for pending_input_image in pending_input_images
                 ] or None,
+            )
+            cost_estimate = self.pricing.estimate(
+                api_type,
+                model_name,
+                token_usage,
             )
             image_path = self.save_image(image_b64)
             image_filename = os.path.basename(image_path)
@@ -520,6 +539,8 @@ class IndexService:
                 image_filename,
                 thumbnail_filename,
                 input_images=input_images,
+                token_usage=token_usage,
+                cost_estimate=cost_estimate,
             )
             session = self.session_manager.get_current_session()
             session.add_entry(entry)

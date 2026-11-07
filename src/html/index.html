@@ -75,7 +75,10 @@
                 <option value="xhigh">XHigh</option>
                 <option value="max">Max</option>
             </select>
-            <span id="current-api-type" class="api-type-indicator" title="現在使用中のAPI"></span>
+            <span class="quick-status">
+                <span id="session-cost-estimate" class="session-cost-indicator" hidden></span>
+                <span id="current-api-type" class="api-type-indicator" title="現在使用中のAPI"></span>
+            </span>
         </div>
         <div class="prompt-area">
             <div id="prompt-input-container" class="prompt-input-container">
@@ -118,6 +121,10 @@
                 <tr><td>画質</td><td><span id="image-info-quality"></span></td></tr>
                 <tr><td>入力画像</td><td><span id="image-info-input-images"></span></td></tr>
                 <tr><td>生成にかかった時間</td><td><span id="image-info-elapsed-time"></span></td></tr>
+                <tr><td>入力トークン</td><td><span id="image-info-input-tokens"></span></td></tr>
+                <tr><td>出力トークン</td><td><span id="image-info-output-tokens"></span></td></tr>
+                <tr><td>合計トークン</td><td><span id="image-info-total-tokens"></span></td></tr>
+                <tr><td>概算料金</td><td><span id="image-info-estimated-cost"></span></td></tr>
                 <tr><td>プロンプト</td><td><div id="image-info-prompt"></div></td></tr>
                 <tr><td>改訂版プロンプト</td><td><div id="image-info-revised-prompt"></div></td></tr>
             </table>
@@ -129,6 +136,7 @@
 <script>
 const MAX_INPUT_IMAGES = 2;
 let pendingInputImages = [];
+const sessionCostEntries = new Map();
 const imageModalView = {
     scale: 1,
     x: 0,
@@ -309,6 +317,86 @@ function initCurrentApiType(apiType) {
         foundry: "Microsoft Foundry"
     };
     indicator.textContent = "API: " + (labels[apiType] || apiType || "-");
+}
+
+// 現在表示中のセッションの概算料金を更新する
+function updateSessionCostEntry(entry) {
+    if (!entry || entry.id === undefined || !entry.success) {
+        return;
+    }
+
+    const estimate = entry.cost_estimate;
+    const amount = estimate ? Number(estimate.amount) : NaN;
+    const currency = estimate && typeof estimate.currency === "string"
+        ? estimate.currency.trim()
+        : "";
+    sessionCostEntries.set(entry.id, {
+        amount: Number.isFinite(amount) && amount >= 0 ? amount : null,
+        currency: currency || null
+    });
+    renderSessionCostEstimate();
+}
+
+function removeSessionCostEntry(entryId) {
+    sessionCostEntries.delete(entryId);
+    renderSessionCostEstimate();
+}
+
+function resetSessionCostEstimate() {
+    sessionCostEntries.clear();
+    renderSessionCostEstimate();
+}
+
+function formatSessionCost(currency, amount, fractionDigits) {
+    const formattedAmount = amount.toFixed(fractionDigits);
+    return currency === "USD"
+        ? `$${formattedAmount}`
+        : `${currency} ${formattedAmount}`;
+}
+
+function renderSessionCostEstimate() {
+    const indicator = document.getElementById("session-cost-estimate");
+    if (!indicator) return;
+
+    const totalCount = sessionCostEntries.size;
+    if (totalCount === 0) {
+        indicator.hidden = true;
+        indicator.textContent = "";
+        indicator.removeAttribute("title");
+        return;
+    }
+
+    const totals = new Map();
+    let estimatedCount = 0;
+    sessionCostEntries.forEach(estimate => {
+        if (estimate.amount === null || !estimate.currency) return;
+        totals.set(
+            estimate.currency,
+            (totals.get(estimate.currency) || 0) + estimate.amount
+        );
+        estimatedCount += 1;
+    });
+
+    const details = ["セッション概算料金"];
+    if (totals.size === 1) {
+        const [currency, amount] = totals.entries().next().value;
+        indicator.textContent = `API料金概算: ${formatSessionCost(currency, amount, 3)}`;
+        details.push(`正確な値: ${currency} ${amount.toFixed(6)}`);
+    } else if (totals.size > 1) {
+        indicator.textContent = "API料金概算: —";
+        details.push("複数の通貨が含まれるため合算できません");
+        totals.forEach((amount, currency) => {
+            details.push(`${currency}: ${amount.toFixed(6)}`);
+        });
+    } else {
+        indicator.textContent = "API料金概算: —";
+        details.push("料金を算出できる画像がありません");
+    }
+
+    details.push(`集計対象: ${estimatedCount}/${totalCount}件`);
+    details.push("pricing.jsonの単価に基づく概算です");
+    indicator.title = details.join("\n");
+    indicator.hidden = false;
 }
 
 // クイック設定を現在の設定値で初期化する
@@ -750,6 +838,7 @@ async function displayGenerationResult(entry, fallbackPrompt, clearPendingOnSucc
     else {
         addErrorInfo(entry.error_info);
     }
+    updateSessionCostEntry(entry);
     scrollToBottom();
 }
 
@@ -894,6 +983,7 @@ async function deleteCard(cardId) {
     await pywebview.api.api_delete_entry(cardId);
     const card = document.getElementById(`card-${cardId}`);
     card.remove();
+    removeSessionCostEntry(cardId);
 }
 
 // 名前を付けて画像を保存する
@@ -1002,6 +1092,30 @@ async function showImageInfoModal(cardId) {
             : "なし";
         const imageElapsedTime = document.getElementById("image-info-elapsed-time");
         imageElapsedTime.textContent = info.elapsed_time.toFixed(2) + "秒";
+        const tokenUsage = info.token_usage || {};
+        const inputTokens = document.getElementById("image-info-input-tokens");
+        if (Object.keys(tokenUsage).length > 0) {
+            const inputDetails = tokenUsage.input_tokens_details || {};
+            inputTokens.textContent = `${tokenUsage.input_tokens ?? 0} `
+                + `(テキスト: ${inputDetails.text_tokens ?? 0} / `
+                + `画像: ${inputDetails.image_tokens ?? 0})`;
+        } else {
+            inputTokens.textContent = "記録なし";
+        }
+        const outputTokens = document.getElementById("image-info-output-tokens");
+        outputTokens.textContent = Object.keys(tokenUsage).length > 0
+            ? String(tokenUsage.output_tokens ?? 0)
+            : "記録なし";
+        const totalTokens = document.getElementById("image-info-total-tokens");
+        totalTokens.textContent = Object.keys(tokenUsage).length > 0
+            ? String(tokenUsage.total_tokens ?? 0)
+            : "記録なし";
+        const estimatedCost = document.getElementById("image-info-estimated-cost");
+        estimatedCost.textContent = info.cost_estimate
+            ? `${info.cost_estimate.currency} ${Number(info.cost_estimate.amount).toFixed(6)}`
+            : Object.keys(tokenUsage).length > 0
+                ? "算出不可（料金設定なし）"
+                : "算出不可（トークン情報なし）";
         const prompt = document.getElementById("image-info-prompt");
         prompt.textContent = info.prompt;
         const revisedPrompt = document.getElementById("image-info-revised-prompt");
@@ -1038,6 +1152,7 @@ function openSessionNameDialog() {
 function clearContents() {
     const container = document.getElementById("dalle-session");
     container.innerHTML = "";
+    resetSessionCostEstimate();
 }
 
 // セッション名を設定する
@@ -1057,6 +1172,7 @@ function addEntry(entry) {
     else {
         addErrorInfo(entry.error_info);
     }
+    updateSessionCostEntry(entry);
     scrollToBottom();
 }
 

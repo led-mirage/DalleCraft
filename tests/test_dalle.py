@@ -32,14 +32,30 @@ class GPTImageClientTest(unittest.TestCase):
     @patch("dalle.OpenAI")
     def test_generates_png_with_shared_gpt_image_parameters(self, openai_class):
         image = SimpleNamespace(b64_json="aW1hZ2U=", revised_prompt=None)
-        openai_class.return_value.images.generate.return_value = SimpleNamespace(data=[image])
+        usage = SimpleNamespace(
+            input_tokens=12,
+            output_tokens=1000,
+            total_tokens=1012,
+            input_tokens_details=SimpleNamespace(
+                text_tokens=12,
+                image_tokens=0,
+            ),
+            output_tokens_details=SimpleNamespace(
+                text_tokens=0,
+                image_tokens=1000,
+            ),
+        )
+        openai_class.return_value.images.generate.return_value = SimpleNamespace(
+            data=[image],
+            usage=usage,
+        )
 
         client = GPTImageClient(
             api_key="test-key",
             model="flare-production",
             base_url="https://example.openai.azure.com",
         )
-        image_b64, revised_prompt = client.gen_image(
+        image_b64, revised_prompt, token_usage = client.gen_image(
             "a test image",
             size="1536x1024",
             quality="max",
@@ -59,6 +75,17 @@ class GPTImageClientTest(unittest.TestCase):
         )
         self.assertEqual("aW1hZ2U=", image_b64)
         self.assertEqual("", revised_prompt)
+        self.assertEqual(12, token_usage["input_tokens"])
+        self.assertEqual(1000, token_usage["output_tokens"])
+        self.assertEqual(1012, token_usage["total_tokens"])
+        self.assertEqual(
+            {"text_tokens": 12, "image_tokens": 0},
+            token_usage["input_tokens_details"],
+        )
+        self.assertEqual(
+            {"text_tokens": 0, "image_tokens": 1000},
+            token_usage["output_tokens_details"],
+        )
 
     @patch("dalle.OpenAI")
     def test_edits_png_with_input_image(self, openai_class):
@@ -69,7 +96,7 @@ class GPTImageClientTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             input_path = Path(directory) / "input.png"
             input_path.write_bytes(b"test image")
-            image_b64, revised_prompt = client.edit_image(
+            image_b64, revised_prompt, token_usage = client.edit_image(
                 "edit this image",
                 str(input_path),
                 size="1024x1024",
@@ -86,6 +113,7 @@ class GPTImageClientTest(unittest.TestCase):
         self.assertEqual(str(input_path), call.kwargs["image"].name)
         self.assertEqual("ZWRpdGVk", image_b64)
         self.assertEqual("revised", revised_prompt)
+        self.assertEqual({}, token_usage)
 
     @patch("dalle.OpenAI")
     def test_edits_png_with_two_input_images_in_order(self, openai_class):
@@ -98,7 +126,7 @@ class GPTImageClientTest(unittest.TestCase):
             second_path = Path(directory) / "second.png"
             first_path.write_bytes(b"first image")
             second_path.write_bytes(b"second image")
-            image_b64, revised_prompt = client.edit_image(
+            image_b64, revised_prompt, token_usage = client.edit_image(
                 "make the first image look like the second",
                 [str(first_path), str(second_path)],
             )
@@ -111,6 +139,7 @@ class GPTImageClientTest(unittest.TestCase):
         self.assertTrue(all(input_image.closed for input_image in call.kwargs["image"]))
         self.assertEqual("ZWRpdGVk", image_b64)
         self.assertEqual("", revised_prompt)
+        self.assertEqual({}, token_usage)
 
 
 if __name__ == "__main__":

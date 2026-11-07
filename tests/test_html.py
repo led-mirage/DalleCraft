@@ -46,6 +46,7 @@ class IndexHtmlTest(unittest.TestCase):
         self.assertIn("quick-image-size", parser.ids)
         self.assertIn("quick-image-quality", parser.ids)
         self.assertIn("current-api-type", parser.ids)
+        self.assertIn("session-cost-estimate", parser.ids)
         self.assertIn("prompt-input-container", parser.ids)
         self.assertIn("input-image-previews", parser.ids)
 
@@ -124,6 +125,32 @@ class IndexHtmlTest(unittest.TestCase):
 
         self.assertIn("regenerateImage(parseInt(target.dataset.entryId))", source)
         self.assertIn("pywebview.api.api_regenerate_image(entryId, getQuickSettings())", source)
+
+    def test_displays_token_usage_and_estimated_cost(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('id="image-info-input-tokens"', source)
+        self.assertIn('id="image-info-output-tokens"', source)
+        self.assertIn('id="image-info-total-tokens"', source)
+        self.assertIn('id="image-info-estimated-cost"', source)
+        self.assertIn("info.token_usage || {}", source)
+        self.assertIn("info.cost_estimate", source)
+
+    def test_displays_session_cost_estimate(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("const sessionCostEntries = new Map()", source)
+        self.assertIn("function updateSessionCostEntry(entry)", source)
+        self.assertIn("function renderSessionCostEstimate()", source)
+        self.assertIn("updateSessionCostEntry(entry)", source)
+        self.assertIn("removeSessionCostEntry(cardId)", source)
+        self.assertIn("resetSessionCostEstimate()", source)
+        self.assertIn("API料金概算: ${formatSessionCost(currency, amount, 3)}", source)
+        self.assertIn('details.push(`集計対象: ${estimatedCount}/${totalCount}件`)', source)
 
 
 if __name__ == "__main__":
