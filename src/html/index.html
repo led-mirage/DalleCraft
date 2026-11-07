@@ -697,6 +697,7 @@ function handleContextMenu(event) {
     let menuContent = "";
     menuContent += `<button id="copy-image"><i class="fa-regular fa-copy"></i>　画像をコピー</button><br>`;
     menuContent += `<button id="saveas"><i class="fa-regular fa-floppy-disk"></i>　名前を付けて保存</button><br>`;
+    menuContent += `<button id="edit-from-image"><i class="fa-regular fa-pen-to-square"></i>　この画像を元に編集</button><br>`;
     if (!inModal) {
         menuContent += `<button id="regenerate"><i class="fa-solid fa-repeat"></i>　同じプロンプトで再作成</button><br>`;
         menuContent += `<button id="image-info"><i class="fa-solid fa-circle-info"></i>　画像情報を表示</button><br>`;
@@ -741,6 +742,17 @@ function handleContextMenu(event) {
             // 少しタイミングを遅らせないとメニューが消えない
             setTimeout(function() {
                 saveImage(parseInt(target.dataset.entryId));
+            }, 100);
+        });
+    }
+
+    // 選択した生成画像を参照画像に設定して編集を始める
+    const editFromImageButton = document.getElementById("edit-from-image");
+    if (editFromImageButton) {
+        editFromImageButton.addEventListener("click", function() {
+            document.body.removeChild(menu);
+            setTimeout(function() {
+                prepareImageEdit(parseInt(target.dataset.entryId));
             }, 100);
         });
     }
@@ -790,6 +802,26 @@ function handleContextMenu(event) {
             document.body.removeChild(menu);
         }
     }, { once: true });
+}
+
+// 生成済み画像を参照画像として設定し、プロンプト入力欄で編集を始める
+async function prepareImageEdit(entryId) {
+    const result = await pywebview.api.api_prepare_image_edit(entryId);
+    if (!result.success) {
+        alert(result.error_info || "編集元の画像を参照画像に追加できませんでした。");
+        return;
+    }
+
+    const previousImages = pendingInputImages;
+    pendingInputImages = [result];
+    renderInputImagePreviews();
+
+    for (const image of previousImages) {
+        await pywebview.api.api_release_input_image(image.input_image_id);
+    }
+
+    const prompt = document.getElementById("prompt");
+    prompt.focus();
 }
 
 // GPT Imageで画像を生成する

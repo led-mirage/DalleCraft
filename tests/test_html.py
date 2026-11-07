@@ -126,6 +126,18 @@ class IndexHtmlTest(unittest.TestCase):
         self.assertIn("regenerateImage(parseInt(target.dataset.entryId))", source)
         self.assertIn("pywebview.api.api_regenerate_image(entryId, getQuickSettings())", source)
 
+    def test_uses_generated_image_as_edit_reference(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('id="edit-from-image"', source)
+        self.assertIn("prepareImageEdit(parseInt(target.dataset.entryId))", source)
+        self.assertIn("pywebview.api.api_prepare_image_edit(entryId)", source)
+        self.assertIn("pendingInputImages = [result]", source)
+        self.assertIn('document.getElementById("prompt")', source)
+        self.assertIn("prompt.focus()", source)
+
     def test_displays_token_usage_and_estimated_cost(self):
         source = (
             Path(__file__).parents[1] / "src" / "html" / "index.html"

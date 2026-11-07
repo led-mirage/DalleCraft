@@ -198,6 +198,41 @@ class IndexServiceTest(unittest.TestCase):
             [image["id"] for image in resolved],
         )
 
+    def test_prepares_generated_image_for_editing(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = Mock()
+        session_manager.get_current_session.return_value.find_entry.return_value = Mock(
+            image_filename="generated.png"
+        )
+        service = self.create_service(config, session_manager)
+
+        with tempfile.TemporaryDirectory() as image_dir:
+            image_path = Path(image_dir) / "generated.png"
+            image_path.write_bytes(base64.b64decode(self.create_png_base64()))
+            with patch("services.index_service.IMAGE_DIR", image_dir):
+                result = service.api_prepare_image_edit(1)
+
+        self.assertTrue(result["success"])
+        self.assertEqual("generated.png", result["filename"])
+        self.assertEqual("generated", result["source"])
+        self.assertTrue(result["preview_base64"])
+        self.assertIn(result["input_image_id"], service._pending_input_images)
+
+    def test_rejects_edit_when_generated_image_is_missing(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = Mock()
+        session_manager.get_current_session.return_value.find_entry.return_value = Mock(
+            image_filename="missing.png"
+        )
+        service = self.create_service(config, session_manager)
+
+        with tempfile.TemporaryDirectory() as image_dir:
+            with patch("services.index_service.IMAGE_DIR", image_dir):
+                result = service.api_prepare_image_edit(1)
+
+        self.assertFalse(result["success"])
+        self.assertIn("画像ファイルが見つかりません", result["error_info"])
+
     @patch("services.index_service.copy_image_to_clipboard")
     def test_copies_generated_image_to_clipboard(self, copy_image):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")
