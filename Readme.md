@@ -40,6 +40,7 @@ OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとG
 - メイン画面から解像度と画質を変更できるクイック設定
 - 生成画像の右クリックメニューから画像をクリップボードへコピー
 - 生成画像の右上にある星ボタンでお気に入りを登録・解除
+- 生成画像に任意の画像名を設定し、個別保存時の初期ファイル名として利用
 - 生成画像の右クリックメニューから、その画像を参照元にした編集を開始
 - 元のプロンプトと参照画像を使った画像の再作成
 - 拡大表示した画像をマウス操作でズーム・移動
@@ -169,7 +170,7 @@ Microsoft Foundryには、Global Standardの公開料金を基にした概算単
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/0805191887bb06789a808d00d0d330b35fb23ea335f1225b995782b081712bb4/detection)で確認できます（2026/11/08 v2.6.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/74c8596d3f063be66c63b869f6d32f0334c519a21ad003d8bb4b3c55e7c5c124/detection)で確認できます（2026/11/08 v2.7.0）
 
 70個中2個のアンチウィルスエンジンで検出
 
@@ -181,7 +182,7 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 ホームページ： https://github.com/r0x0r/pywebview  
 ライセンス：  BSD-3-Clause license  
 
-### 🔖 openai 3.42.1
+### 🔖 openai 3.46.0
 ホームページ： https://github.com/openai/openai-python  
 ライセンス： Apache License 2.0  
 
@@ -220,6 +221,8 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 ### 2.7.0 (2026/11/08)
 
 - 生成画像のお気に入り登録・解除に対応
+- 生成画像への画像名の設定に対応
+- openaiライブラリのバージョンを3.46.0に更新
 
 ### 2.6.0 (2026/11/07)
 

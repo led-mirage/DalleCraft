@@ -696,6 +696,23 @@ pre {
     max-width: 100%;
 }
 
+.prompt-image-card > .image.has-image-name {
+    margin-bottom: 1.35rem;
+}
+
+.image-name {
+    position: absolute;
+    top: calc(100% + 0.25rem);
+    left: 0;
+    width: 100%;
+    overflow: hidden;
+    color: #666;
+    font-size: 0.75rem;
+    line-height: 1.1rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .prompt-image-card .image img {
     cursor: pointer;
     transition: opacity 0.3s;

@@ -151,6 +151,18 @@ class IndexHtmlTest(unittest.TestCase):
         )
         self.assertGreater(modal_z_index, favorite_z_index)
 
+    def test_supports_naming_generated_images(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('id="rename-image"', source)
+        self.assertIn('id="rename-image"><i class="fa-regular fa-file"', source)
+        self.assertIn('img.dataset.imageName = entry.image_name || ""', source)
+        self.assertIn('imageName.className = "image-name"', source)
+        self.assertIn("pywebview.api.api_set_image_name(entryId, imageName)", source)
+        self.assertIn("updateImageName(entryId, result.image_name)", source)
+
     def test_uses_generated_image_as_edit_reference(self):
         source = (
             Path(__file__).parents[1] / "src" / "html" / "index.html"

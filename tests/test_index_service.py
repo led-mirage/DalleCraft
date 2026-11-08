@@ -673,6 +673,108 @@ class IndexServiceTest(unittest.TestCase):
 
         self.assertFalse(result["success"])
 
+    def test_sets_image_name_without_png_extension(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        session.save_to_file = Mock(return_value=True)
+        entry = SessionEntry(
+            "prompt", "", "openai", "gpt-image-2.5-flare", "1024x1024",
+            "high", True, 1.0, "generated.png", "generated_thumbnail.png",
+        )
+        session.add_entry(entry)
+        service = self.create_service(config, session_manager)
+
+        result = service.api_set_image_name(entry.id, "  夕焼けの海.png  ")
+
+        self.assertEqual(
+            {"success": True, "image_name": "夕焼けの海", "adjusted": False},
+            result,
+        )
+        self.assertEqual("夕焼けの海", entry.image_name)
+        session.save_to_file.assert_called_once_with()
+
+    def test_adds_number_to_duplicate_image_name(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        session.save_to_file = Mock(return_value=True)
+        first_entry = SessionEntry(
+            "first", "", "openai", "gpt-image-2.5-flare", "1024x1024",
+            "high", True, 1.0, "first.png", "first_thumbnail.png",
+            image_name="Cat",
+        )
+        second_entry = SessionEntry(
+            "second", "", "openai", "gpt-image-2.5-flare", "1024x1024",
+            "high", True, 1.0, "second.png", "second_thumbnail.png",
+        )
+        session.add_entry(first_entry)
+        session.add_entry(second_entry)
+        service = self.create_service(config, session_manager)
+
+        result = service.api_set_image_name(second_entry.id, "cat")
+
+        self.assertTrue(result["adjusted"])
+        self.assertEqual("cat (2)", result["image_name"])
+        self.assertEqual("cat (2)", second_entry.image_name)
+
+    def test_rejects_invalid_image_name(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        session.save_to_file = Mock(return_value=True)
+        entry = SessionEntry(
+            "prompt", "", "openai", "gpt-image-2.5-flare", "1024x1024",
+            "high", True, 1.0, "generated.png", "generated_thumbnail.png",
+        )
+        session.add_entry(entry)
+        service = self.create_service(config, session_manager)
+
+        for image_name in ("bad/name", "CON", "trailing."):
+            with self.subTest(image_name=image_name):
+                result = service.api_set_image_name(entry.id, image_name)
+                self.assertFalse(result["success"])
+
+        self.assertEqual("", entry.image_name)
+        session.save_to_file.assert_not_called()
+
+    def test_removes_image_name_with_empty_value(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        session.save_to_file = Mock(return_value=True)
+        entry = SessionEntry(
+            "prompt", "", "openai", "gpt-image-2.5-flare", "1024x1024",
+            "high", True, 1.0, "generated.png", "generated_thumbnail.png",
+            image_name="old name",
+        )
+        session.add_entry(entry)
+        service = self.create_service(config, session_manager)
+
+        result = service.api_set_image_name(entry.id, "   ")
+
+        self.assertTrue(result["success"])
+        self.assertEqual("", entry.image_name)
+
+    def test_uses_image_name_as_save_dialog_default(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        entry = SessionEntry(
+            "prompt", "", "openai", "gpt-image-2.5-flare", "1024x1024",
+            "high", True, 1.0, "generated.png", "generated_thumbnail.png",
+            image_name="夕焼けの海",
+        )
+        session.add_entry(entry)
+        window = Mock()
+        window.open_file_dialog.return_value = None
+        service = IndexService(window, config, session_manager)
+        self.addCleanup(service.close)
+
+        service.api_save_image(entry.id)
+
+        window.open_file_dialog.assert_called_once_with("夕焼けの海.png")
+
     def test_persists_input_images_under_log_directory(self):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")
         service = self.create_service(config)

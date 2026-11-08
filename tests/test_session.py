@@ -36,6 +36,7 @@ class SessionEntryTest(unittest.TestCase):
         self.assertEqual({}, entry.token_usage)
         self.assertIsNone(entry.cost_estimate)
         self.assertFalse(entry.favorite)
+        self.assertEqual("", entry.image_name)
 
     def test_round_trips_favorite(self):
         data = self.create_entry_data()
@@ -45,6 +46,21 @@ class SessionEntryTest(unittest.TestCase):
 
         self.assertTrue(entry.favorite)
         self.assertTrue(entry.to_dict()["favorite"])
+
+    def test_round_trips_image_name_and_builds_export_filename(self):
+        data = self.create_entry_data()
+        data["image_name"] = "夕焼けの海"
+
+        entry = SessionEntry.from_dict(data)
+
+        self.assertEqual("夕焼けの海", entry.image_name)
+        self.assertEqual("夕焼けの海", entry.to_dict()["image_name"])
+        self.assertEqual("夕焼けの海.png", entry.get_export_filename())
+
+    def test_uses_internal_filename_when_image_name_is_empty(self):
+        entry = SessionEntry.from_dict(self.create_entry_data())
+
+        self.assertEqual("generated.png", entry.get_export_filename())
 
     def test_round_trips_input_image_metadata(self):
         data = self.create_entry_data()
