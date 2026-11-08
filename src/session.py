@@ -12,7 +12,7 @@ LOG_DIR = "logs"
 
 
 class SessionEntry:
-    def __init__(self, prompt, revised_prompt, api_type, model_name, image_size, image_quality, success, elapsed_time, image_filename, thumbnail_filename, error_info=None, timestamp=None, input_images=None, token_usage=None, cost_estimate=None):
+    def __init__(self, prompt, revised_prompt, api_type, model_name, image_size, image_quality, success, elapsed_time, image_filename, thumbnail_filename, error_info=None, timestamp=None, input_images=None, token_usage=None, cost_estimate=None, favorite=False, image_name=""):
         self.id = 0
         self.timestamp = datetime.now() if timestamp is None else timestamp
         self.prompt = prompt
@@ -29,6 +29,14 @@ class SessionEntry:
         self.input_images = [] if input_images is None else input_images
         self.token_usage = {} if token_usage is None else token_usage
         self.cost_estimate = cost_estimate
+        self.favorite = bool(favorite)
+        self.image_name = image_name
+
+    def get_export_filename(self) -> str:
+        if not self.image_name:
+            return self.image_filename
+        extension = os.path.splitext(self.image_filename)[1] or ".png"
+        return f"{self.image_name}{extension}"
 
     def to_dict(self):
         return {
@@ -49,6 +57,8 @@ class SessionEntry:
             "cost_estimate": (
                 None if self.cost_estimate is None else dict(self.cost_estimate)
             ),
+            "favorite": self.favorite,
+            "image_name": self.image_name,
             "error_info": self.error_info
         }
 
@@ -69,6 +79,8 @@ class SessionEntry:
             input_images=data.get("input_images", []),
             token_usage=data.get("token_usage", {}),
             cost_estimate=data.get("cost_estimate"),
+            favorite=data.get("favorite", False),
+            image_name=data.get("image_name", ""),
         )
         entry.id = data.get("id", 0)
         entry.timestamp = datetime.fromisoformat(data["timestamp"])

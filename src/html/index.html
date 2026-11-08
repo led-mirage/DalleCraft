@@ -699,6 +699,9 @@ function handleContextMenu(event) {
     if (target.tagName !== "IMG") return;
     if (target.dataset.kind === "input" || target.classList.contains("input-reference-image")) return;
     const inModal = Boolean(target.closest("#image-modal"));
+    const entryId = parseInt(target.dataset.entryId);
+    const cardImage = document.querySelector(`#card-${entryId} > .image > img`);
+    const imageName = cardImage ? cardImage.dataset.imageName || "" : "";
 
     event.preventDefault();
 
@@ -711,6 +714,7 @@ function handleContextMenu(event) {
     let menuContent = "";
     menuContent += `<button id="copy-image"><i class="fa-regular fa-copy"></i>　画像をコピー</button><br>`;
     menuContent += `<button id="saveas"><i class="fa-regular fa-floppy-disk"></i>　名前を付けて保存</button><br>`;
+    menuContent += `<button id="rename-image"><i class="fa-regular fa-file"></i>　${imageName ? "画像名を変更" : "画像名を設定"}</button><br>`;
     menuContent += `<button id="edit-from-image"><i class="fa-regular fa-pen-to-square"></i>　この画像を元に編集</button><br>`;
     if (!inModal) {
         menuContent += `<button id="regenerate"><i class="fa-solid fa-repeat"></i>　同じプロンプトで再作成</button><br>`;
@@ -756,6 +760,17 @@ function handleContextMenu(event) {
             // 少しタイミングを遅らせないとメニューが消えない
             setTimeout(function() {
                 saveImage(parseInt(target.dataset.entryId));
+            }, 100);
+        });
+    }
+
+    // 画像名を設定または変更
+    const renameImageButton = document.getElementById("rename-image");
+    if (renameImageButton) {
+        renameImageButton.addEventListener("click", function() {
+            document.body.removeChild(menu);
+            setTimeout(function() {
+                editImageName(entryId, imageName);
             }, 100);
         });
     }
@@ -976,6 +991,7 @@ function addImage(entry) {
     img.src = "data:image/png;base64," + entry.image_base64;
     img.dataset.entryId = entry.id;
     img.dataset.kind = "output";
+    img.dataset.imageName = entry.image_name || "";
     img.addEventListener("click", async function() {
         const imageBase64 = await pywebview.api.api_get_image_base64(parseInt(this.dataset.entryId));
         showImageModal(
@@ -987,8 +1003,97 @@ function addImage(entry) {
     // 画像領域に画像を追加
     imageDiv.appendChild(img);
 
+    const favoriteButton = document.createElement("button");
+    favoriteButton.type = "button";
+    favoriteButton.className = "favorite-button";
+    favoriteButton.dataset.entryId = entry.id;
+    updateFavoriteButton(favoriteButton, Boolean(entry.favorite));
+    favoriteButton.addEventListener("click", function() {
+        toggleFavorite(parseInt(this.dataset.entryId), this);
+    });
+    imageDiv.appendChild(favoriteButton);
+
+    if (entry.image_name) {
+        const imageName = document.createElement("div");
+        imageName.className = "image-name";
+        imageName.textContent = entry.image_name;
+        imageName.title = entry.image_name;
+        imageDiv.classList.add("has-image-name");
+        imageDiv.appendChild(imageName);
+    }
+
     // カードに画像領域を追加
     lastCard.appendChild(imageDiv);
+}
+
+// お気に入りボタンの表示を更新する
+function updateFavoriteButton(button, favorite) {
+    button.dataset.favorite = favorite ? "true" : "false";
+    button.classList.toggle("is-favorite", favorite);
+    button.innerHTML = favorite
+        ? '<i class="fa-solid fa-star"></i>'
+        : '<i class="fa-regular fa-star"></i>';
+    button.title = favorite ? "お気に入りから外す" : "お気に入りに追加";
+    button.setAttribute("aria-label", button.title);
+    button.setAttribute("aria-pressed", favorite ? "true" : "false");
+}
+
+async function toggleFavorite(entryId, button) {
+    const favorite = button.dataset.favorite !== "true";
+    button.disabled = true;
+    try {
+        const result = await pywebview.api.api_set_favorite(entryId, favorite);
+        if (!result.success) {
+            alert(result.error_info || "お気に入りを変更できませんでした。");
+            return;
+        }
+        updateFavoriteButton(button, Boolean(result.favorite));
+    }
+    finally {
+        button.disabled = false;
+    }
+}
+
+function updateImageName(entryId, imageName) {
+    const imageDiv = document.querySelector(`#card-${entryId} > .image`);
+    if (!imageDiv) return;
+
+    const image = imageDiv.querySelector("img");
+    image.dataset.imageName = imageName;
+    let nameElement = imageDiv.querySelector(".image-name");
+    if (!imageName) {
+        if (nameElement) nameElement.remove();
+        imageDiv.classList.remove("has-image-name");
+        return;
+    }
+
+    if (!nameElement) {
+        nameElement = document.createElement("div");
+        nameElement.className = "image-name";
+        imageDiv.appendChild(nameElement);
+    }
+    nameElement.textContent = imageName;
+    nameElement.title = imageName;
+    imageDiv.classList.add("has-image-name");
+}
+
+async function editImageName(entryId, currentName) {
+    const imageName = prompt(
+        "画像名を入力してください。空欄にすると名前を削除します。",
+        currentName
+    );
+    if (imageName === null) return;
+
+    const result = await pywebview.api.api_set_image_name(entryId, imageName);
+    if (!result.success) {
+        alert(result.error_info || "画像名を変更できませんでした。");
+        return;
+    }
+
+    updateImageName(entryId, result.image_name);
+    if (result.adjusted) {
+        showToast(`同じ画像名があるため「${result.image_name}」に変更しました`);
+    }
 }
 
 // 最後のエラー情報を追加する

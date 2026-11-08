@@ -35,6 +35,13 @@ class IndexService:
     MAX_INPUT_IMAGES = 2
     MAX_INPUT_IMAGE_BYTES = 20 * 1024 * 1024
     MAX_INPUT_IMAGE_EDGE = 2048
+    MAX_IMAGE_NAME_LENGTH = 100
+    INVALID_IMAGE_NAME_CHARACTERS = set('<>:"/\\|?*')
+    WINDOWS_RESERVED_NAMES = {
+        "CON", "PRN", "AUX", "NUL",
+        *(f"COM{number}" for number in range(1, 10)),
+        *(f"LPT{number}" for number in range(1, 10)),
+    }
     INPUT_IMAGE_FORMATS = {
         "PNG": (".png", "image/png"),
         "JPEG": (".jpg", "image/jpeg"),
@@ -682,7 +689,7 @@ class IndexService:
     def api_save_image(self, entry_id: int):
         session = self.session_manager.get_current_session()
         entry = session.find_entry(entry_id)
-        dst_path = self.window.open_file_dialog(entry.image_filename)
+        dst_path = self.window.open_file_dialog(entry.get_export_filename())
         if dst_path:
             src_path = os.path.join(IMAGE_DIR, entry.image_filename)
             shutil.copy2(src_path, dst_path)
@@ -733,6 +740,114 @@ class IndexService:
         session = self.session_manager.get_current_session()
         entry = session.find_entry(entry_id)
         return entry.to_dict()
+
+    def api_set_favorite(self, entry_id: int, favorite: bool) -> dict:
+        session = self.session_manager.get_current_session()
+        entry = session.find_entry(entry_id)
+        if entry is None or not entry.success:
+            return {
+                "success": False,
+                "error_info": "お気に入りを変更する画像が見つかりません。",
+            }
+
+        previous_favorite = entry.favorite
+        entry.favorite = bool(favorite)
+        if not session.save_to_file():
+            entry.favorite = previous_favorite
+            return {
+                "success": False,
+                "error_info": "お気に入りを保存できませんでした。",
+            }
+
+        return {"success": True, "favorite": entry.favorite}
+
+    @classmethod
+    def normalize_image_name(cls, image_name: str) -> str:
+        if not isinstance(image_name, str):
+            raise ValueError("画像名を文字列で入力してください。")
+
+        normalized_name = image_name.strip()
+        if normalized_name.lower().endswith(".png"):
+            normalized_name = normalized_name[:-4].rstrip()
+        if not normalized_name:
+            return ""
+        if len(normalized_name) > cls.MAX_IMAGE_NAME_LENGTH:
+            raise ValueError(
+                f"画像名は{cls.MAX_IMAGE_NAME_LENGTH}文字以内で入力してください。"
+            )
+        if normalized_name.endswith("."):
+            raise ValueError("画像名の末尾にピリオドは使用できません。")
+        if any(
+            character in cls.INVALID_IMAGE_NAME_CHARACTERS or ord(character) < 32
+            for character in normalized_name
+        ):
+            raise ValueError('画像名に < > : " / \\ | ? * は使用できません。')
+
+        first_component = normalized_name.split(".", 1)[0].upper()
+        if first_component in cls.WINDOWS_RESERVED_NAMES:
+            raise ValueError(f"「{normalized_name}」は画像名に使用できません。")
+        return normalized_name
+
+    @classmethod
+    def create_unique_image_name(
+        cls,
+        session: Session,
+        entry_id: int,
+        image_name: str,
+    ) -> str:
+        used_names = {
+            (
+                entry.image_name
+                or os.path.splitext(entry.image_filename)[0]
+            ).casefold()
+            for entry in session.entries
+            if entry.id != entry_id and entry.success and entry.image_filename
+        }
+        if image_name.casefold() not in used_names:
+            return image_name
+
+        number = 2
+        while True:
+            suffix = f" ({number})"
+            base_name = image_name[:cls.MAX_IMAGE_NAME_LENGTH - len(suffix)].rstrip()
+            candidate = f"{base_name}{suffix}"
+            if candidate.casefold() not in used_names:
+                return candidate
+            number += 1
+
+    def api_set_image_name(self, entry_id: int, image_name: str) -> dict:
+        session = self.session_manager.get_current_session()
+        entry = session.find_entry(entry_id)
+        if entry is None or not entry.success:
+            return {
+                "success": False,
+                "error_info": "名前を変更する画像が見つかりません。",
+            }
+
+        try:
+            normalized_name = self.normalize_image_name(image_name)
+        except ValueError as error:
+            return {"success": False, "error_info": str(error)}
+
+        unique_name = (
+            self.create_unique_image_name(session, entry_id, normalized_name)
+            if normalized_name
+            else ""
+        )
+        previous_name = entry.image_name
+        entry.image_name = unique_name
+        if not session.save_to_file():
+            entry.image_name = previous_name
+            return {
+                "success": False,
+                "error_info": "画像名を保存できませんでした。",
+            }
+
+        return {
+            "success": True,
+            "image_name": entry.image_name,
+            "adjusted": entry.image_name != normalized_name,
+        }
 
     def api_prev_session(self):
         session = self.session_manager.previous_session()

@@ -70,6 +70,12 @@ class Api:
     def api_get_image_info(self, entry_id: int) -> dict:
         return self.index_service.api_get_image_info(entry_id)
 
+    def api_set_favorite(self, entry_id: int, favorite: bool) -> dict:
+        return self.index_service.api_set_favorite(entry_id, favorite)
+
+    def api_set_image_name(self, entry_id: int, image_name: str) -> dict:
+        return self.index_service.api_set_image_name(entry_id, image_name)
+
     def api_prev_session(self):
         return self.index_service.api_prev_session()
 
