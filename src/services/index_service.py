@@ -232,7 +232,7 @@ class IndexService:
             raise
 
         source = image_data.get("source", "clipboard")
-        if source not in ("clipboard", "drop"):
+        if source not in ("clipboard", "drop", "generated"):
             source = "clipboard"
         default_name = f"pasted-image{extension}"
         original_name = os.path.basename(image_data.get("filename") or default_name)
@@ -454,6 +454,9 @@ class IndexService:
                         image_b64 = base64.b64encode(image_file.read()).decode("utf-8")
                         entry_dict["image_base64"] = image_b64
                 self.window.evaluate_js(f"addEntry({json.dumps(entry_dict)})")
+            self.window.evaluate_js(
+                f"setSessionUsageHistory({json.dumps(session.get_usage_history())})"
+            )
 
     # --------------------------------------------------------------------------
     # JavaScriptから呼び出されるAPI群
@@ -461,7 +464,7 @@ class IndexService:
 
     def api_refresh_index_view(self):
         session = self.session_manager.get_current_session()
-        if len(session.entries) > 0:
+        if len(session.entries) > 0 or len(session.usage_history) > 0:
             self.refresh_view(session)
 
     def api_update_generation_options(self, options: dict) -> dict:
@@ -479,6 +482,41 @@ class IndexService:
     def api_register_input_image(self, image_data: dict) -> dict:
         try:
             return self.register_input_image(image_data)
+        except Exception as e:
+            return {"success": False, "error_info": str(e)}
+
+    def api_prepare_image_edit(self, entry_id: int) -> dict:
+        try:
+            session = self.session_manager.get_current_session()
+            entry = session.find_entry(entry_id)
+            if entry is None:
+                return {
+                    "success": False,
+                    "error_info": "編集元の画像が見つかりません。",
+                }
+
+            image_filename = entry.image_filename
+            if not image_filename:
+                return {
+                    "success": False,
+                    "error_info": "編集元の画像ファイルが見つかりません。",
+                }
+            image_path = os.path.join(IMAGE_DIR, image_filename)
+            if not os.path.exists(image_path):
+                return {
+                    "success": False,
+                    "error_info": "編集元の画像ファイルが見つかりません。",
+                }
+
+            with open(image_path, "rb") as image_file:
+                image_base64 = base64.b64encode(image_file.read()).decode("ascii")
+
+            return self.register_input_image({
+                "filename": image_filename,
+                "source": "generated",
+                "mime_type": "image/png",
+                "image_base64": image_base64,
+            })
         except Exception as e:
             return {"success": False, "error_info": str(e)}
 

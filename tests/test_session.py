@@ -1,11 +1,14 @@
+import json
 import sys
+import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from session import SessionEntry
+from session import Session, SessionEntry
 
 
 class SessionEntryTest(unittest.TestCase):
@@ -81,6 +84,69 @@ class SessionEntryTest(unittest.TestCase):
 
         self.assertEqual(data["token_usage"], serialized["token_usage"])
         self.assertEqual(data["cost_estimate"], serialized["cost_estimate"])
+
+
+class SessionTest(unittest.TestCase):
+    def create_entry(self):
+        return SessionEntry(
+            prompt="test",
+            revised_prompt="",
+            api_type="openai",
+            model_name="gpt-image-2.5-flare",
+            image_size="1024x1024",
+            image_quality="high",
+            success=True,
+            elapsed_time=1.0,
+            image_filename="generated.png",
+            thumbnail_filename="generated_thumbnail.png",
+            token_usage={"total_tokens": 1010},
+            cost_estimate={"currency": "USD", "amount": 0.03},
+        )
+
+    def test_usage_history_survives_entry_removal_and_reload(self):
+        session = Session()
+        entry = self.create_entry()
+        session.add_entry(entry)
+        session.remove_entry(entry.id)
+
+        self.assertEqual([], session.entries)
+        self.assertEqual(1010, session.usage_history[0]["token_usage"]["total_tokens"])
+        self.assertEqual(0.03, session.usage_history[0]["cost_estimate"]["amount"])
+
+        with tempfile.TemporaryDirectory() as log_dir:
+            with patch("session.LOG_DIR", log_dir):
+                self.assertTrue(session.save_to_file())
+                loaded = Session.load_from_file(session.logfile_name)
+
+        self.assertEqual([], loaded.entries)
+        self.assertEqual(session.usage_history, loaded.usage_history)
+
+    def test_loads_legacy_session_usage_history_from_entries(self):
+        entry = self.create_entry()
+        entry.id = 1
+        now = datetime.now().isoformat()
+        data = {
+            "version": Session.FILE_VERSION,
+            "session_name": "legacy",
+            "created_at": now,
+            "saved_at": now,
+            "next_entry_id": 2,
+            "entries": [entry.to_dict()],
+        }
+
+        with tempfile.TemporaryDirectory() as log_dir:
+            filename = "Session_legacy.json"
+            Path(log_dir, filename).write_text(
+                json.dumps(data),
+                encoding="utf-8",
+            )
+            with patch("session.LOG_DIR", log_dir):
+                loaded = Session.load_from_file(filename)
+
+        self.assertEqual(
+            [Session.create_usage_record(loaded.entries[0])],
+            loaded.usage_history,
+        )
 
 
 if __name__ == "__main__":

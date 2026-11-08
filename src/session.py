@@ -81,6 +81,7 @@ class Session:
     def __init__(self):
         self.session_name: str = ""
         self.entries: list[SessionEntry] = []
+        self.usage_history: list[dict] = []
         self.created_at: datetime = datetime.now()
         self.saved_at: datetime = None
         self.logfile_name: str = f"Session_{self.created_at.strftime('%Y%m%d_%H%M%S')}.json"
@@ -96,6 +97,33 @@ class Session:
         entry.id = self.next_entry_id
         self.next_entry_id += 1
         self.entries.append(entry)
+        self.usage_history.append(self.create_usage_record(entry))
+
+    @staticmethod
+    def create_usage_record(entry: SessionEntry) -> dict:
+        return {
+            "id": entry.id,
+            "success": entry.success,
+            "token_usage": dict(entry.token_usage),
+            "cost_estimate": (
+                None if entry.cost_estimate is None else dict(entry.cost_estimate)
+            ),
+        }
+
+    def get_usage_history(self) -> list[dict]:
+        return [
+            {
+                "id": record["id"],
+                "success": bool(record.get("success", True)),
+                "token_usage": dict(record.get("token_usage") or {}),
+                "cost_estimate": (
+                    None
+                    if record.get("cost_estimate") is None
+                    else dict(record["cost_estimate"])
+                ),
+            }
+            for record in self.usage_history
+        ]
 
     def remove_entry(self, entry_id: int):
         entry = self.find_entry(entry_id)
@@ -110,7 +138,8 @@ class Session:
             "created_at": self.created_at.isoformat(),
             "saved_at": self.saved_at.isoformat(),
             "next_entry_id": self.next_entry_id,
-            "entries": [entry.to_dict() for entry in self.entries]
+            "entries": [entry.to_dict() for entry in self.entries],
+            "usage_history": self.get_usage_history(),
         }
 
         try:
@@ -149,6 +178,29 @@ class Session:
             for entry_data in data["entries"]:
                 entry = SessionEntry.from_dict(entry_data)
                 session.entries.append(entry)
+
+            usage_history = data.get("usage_history")
+            if isinstance(usage_history, list):
+                session.usage_history = [
+                    {
+                        "id": record["id"],
+                        "success": bool(record.get("success", True)),
+                        "token_usage": dict(record.get("token_usage") or {}),
+                        "cost_estimate": (
+                            None
+                            if record.get("cost_estimate") is None
+                            else dict(record["cost_estimate"])
+                        ),
+                    }
+                    for record in usage_history
+                    if isinstance(record, dict) and "id" in record
+                ]
+            else:
+                # 旧形式のセッションは、現在残っているエントリーから利用履歴を補完する。
+                session.usage_history = [
+                    session.create_usage_record(entry)
+                    for entry in session.entries
+                ]
 
             return session
 

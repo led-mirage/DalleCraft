@@ -46,6 +46,9 @@ class Api:
     def api_register_input_image(self, image_data: dict) -> dict:
         return self.index_service.api_register_input_image(image_data)
 
+    def api_prepare_image_edit(self, entry_id: int) -> dict:
+        return self.index_service.api_prepare_image_edit(entry_id)
+
     def api_release_input_image(self, input_image_id: str) -> dict:
         return self.index_service.api_release_input_image(input_image_id)
 

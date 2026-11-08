@@ -198,6 +198,41 @@ class IndexServiceTest(unittest.TestCase):
             [image["id"] for image in resolved],
         )
 
+    def test_prepares_generated_image_for_editing(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = Mock()
+        session_manager.get_current_session.return_value.find_entry.return_value = Mock(
+            image_filename="generated.png"
+        )
+        service = self.create_service(config, session_manager)
+
+        with tempfile.TemporaryDirectory() as image_dir:
+            image_path = Path(image_dir) / "generated.png"
+            image_path.write_bytes(base64.b64decode(self.create_png_base64()))
+            with patch("services.index_service.IMAGE_DIR", image_dir):
+                result = service.api_prepare_image_edit(1)
+
+        self.assertTrue(result["success"])
+        self.assertEqual("generated.png", result["filename"])
+        self.assertEqual("generated", result["source"])
+        self.assertTrue(result["preview_base64"])
+        self.assertIn(result["input_image_id"], service._pending_input_images)
+
+    def test_rejects_edit_when_generated_image_is_missing(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = Mock()
+        session_manager.get_current_session.return_value.find_entry.return_value = Mock(
+            image_filename="missing.png"
+        )
+        service = self.create_service(config, session_manager)
+
+        with tempfile.TemporaryDirectory() as image_dir:
+            with patch("services.index_service.IMAGE_DIR", image_dir):
+                result = service.api_prepare_image_edit(1)
+
+        self.assertFalse(result["success"])
+        self.assertIn("画像ファイルが見つかりません", result["error_info"])
+
     @patch("services.index_service.copy_image_to_clipboard")
     def test_copies_generated_image_to_clipboard(self, copy_image):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")
@@ -550,6 +585,48 @@ class IndexServiceTest(unittest.TestCase):
             ],
             service.remove_managed_file.call_args_list,
         )
+
+    def test_deleting_entry_keeps_session_usage_history(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        session.save_to_file = Mock(return_value=True)
+        entry = SessionEntry(
+            "prompt",
+            "",
+            "openai",
+            "gpt-image-2.5-flare",
+            "1024x1024",
+            "high",
+            True,
+            1.0,
+            "generated.png",
+            "generated_thumbnail.png",
+            token_usage={"total_tokens": 1010},
+            cost_estimate={"currency": "USD", "amount": 0.03},
+        )
+        session.add_entry(entry)
+        service = self.create_service(config, session_manager)
+        service.remove_entry_files = Mock()
+
+        service.api_delete_entry(entry.id)
+
+        self.assertIsNone(session.find_entry(entry.id))
+        self.assertEqual(1, len(session.usage_history))
+        self.assertEqual(0.03, session.usage_history[0]["cost_estimate"]["amount"])
+        session.save_to_file.assert_called_once_with()
+
+        service.window = Mock()
+        service.api_refresh_index_view()
+        evaluated_scripts = [
+            called.args[0]
+            for called in service.window.evaluate_js.call_args_list
+        ]
+        self.assertTrue(any(
+            script.startswith("setSessionUsageHistory(")
+            and '"amount": 0.03' in script
+            for script in evaluated_scripts
+        ))
 
     def test_persists_input_images_under_log_directory(self):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")

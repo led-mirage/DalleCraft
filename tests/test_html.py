@@ -126,6 +126,18 @@ class IndexHtmlTest(unittest.TestCase):
         self.assertIn("regenerateImage(parseInt(target.dataset.entryId))", source)
         self.assertIn("pywebview.api.api_regenerate_image(entryId, getQuickSettings())", source)
 
+    def test_uses_generated_image_as_edit_reference(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('id="edit-from-image"', source)
+        self.assertIn("prepareImageEdit(parseInt(target.dataset.entryId))", source)
+        self.assertIn("pywebview.api.api_prepare_image_edit(entryId)", source)
+        self.assertIn("pendingInputImages = [result]", source)
+        self.assertIn('document.getElementById("prompt")', source)
+        self.assertIn("prompt.focus()", source)
+
     def test_displays_token_usage_and_estimated_cost(self):
         source = (
             Path(__file__).parents[1] / "src" / "html" / "index.html"
@@ -147,10 +159,14 @@ class IndexHtmlTest(unittest.TestCase):
         self.assertIn("function updateSessionCostEntry(entry)", source)
         self.assertIn("function renderSessionCostEstimate()", source)
         self.assertIn("updateSessionCostEntry(entry)", source)
-        self.assertIn("removeSessionCostEntry(cardId)", source)
+        self.assertIn("function setSessionUsageHistory(usageHistory)", source)
+        self.assertNotIn("removeSessionCostEntry(cardId)", source)
         self.assertIn("resetSessionCostEstimate()", source)
         self.assertIn("API料金概算: ${formatSessionCost(currency, amount, 3)}", source)
-        self.assertIn('details.push(`集計対象: ${estimatedCount}/${totalCount}件`)', source)
+        self.assertIn('details.push(`料金集計: ${estimatedCount}件`)', source)
+        self.assertIn('details.push(`削除済み画像: ${deletedImageCount}件`)', source)
+        self.assertIn('details.push(`算出不可: ${unavailableCount}件`)', source)
+        self.assertIn("renderSessionCostEstimate();", source)
 
 
 if __name__ == "__main__":
