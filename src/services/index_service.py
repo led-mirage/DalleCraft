@@ -734,6 +734,26 @@ class IndexService:
         entry = session.find_entry(entry_id)
         return entry.to_dict()
 
+    def api_set_favorite(self, entry_id: int, favorite: bool) -> dict:
+        session = self.session_manager.get_current_session()
+        entry = session.find_entry(entry_id)
+        if entry is None or not entry.success:
+            return {
+                "success": False,
+                "error_info": "お気に入りを変更する画像が見つかりません。",
+            }
+
+        previous_favorite = entry.favorite
+        entry.favorite = bool(favorite)
+        if not session.save_to_file():
+            entry.favorite = previous_favorite
+            return {
+                "success": False,
+                "error_info": "お気に入りを保存できませんでした。",
+            }
+
+        return {"success": True, "favorite": entry.favorite}
+
     def api_prev_session(self):
         session = self.session_manager.previous_session()
         if session:

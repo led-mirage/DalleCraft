@@ -628,6 +628,51 @@ class IndexServiceTest(unittest.TestCase):
             for script in evaluated_scripts
         ))
 
+    def test_sets_favorite_and_saves_session(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        session.save_to_file = Mock(return_value=True)
+        entry = SessionEntry(
+            "prompt", "", "openai", "gpt-image-2.5-flare", "1024x1024",
+            "high", True, 1.0, "generated.png", "generated_thumbnail.png",
+        )
+        session.add_entry(entry)
+        service = self.create_service(config, session_manager)
+
+        result = service.api_set_favorite(entry.id, True)
+
+        self.assertEqual({"success": True, "favorite": True}, result)
+        self.assertTrue(entry.favorite)
+        session.save_to_file.assert_called_once_with()
+
+    def test_does_not_change_favorite_when_save_fails(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        session.save_to_file = Mock(return_value=False)
+        entry = SessionEntry(
+            "prompt", "", "openai", "gpt-image-2.5-flare", "1024x1024",
+            "high", True, 1.0, "generated.png", "generated_thumbnail.png",
+        )
+        session.add_entry(entry)
+        service = self.create_service(config, session_manager)
+
+        result = service.api_set_favorite(entry.id, True)
+
+        self.assertFalse(result["success"])
+        self.assertFalse(entry.favorite)
+
+    def test_rejects_favorite_change_for_missing_entry(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session_manager.create_new_session()
+        service = self.create_service(config, session_manager)
+
+        result = service.api_set_favorite(999, True)
+
+        self.assertFalse(result["success"])
+
     def test_persists_input_images_under_log_directory(self):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")
         service = self.create_service(config)

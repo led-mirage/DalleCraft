@@ -987,8 +987,46 @@ function addImage(entry) {
     // 画像領域に画像を追加
     imageDiv.appendChild(img);
 
+    const favoriteButton = document.createElement("button");
+    favoriteButton.type = "button";
+    favoriteButton.className = "favorite-button";
+    favoriteButton.dataset.entryId = entry.id;
+    updateFavoriteButton(favoriteButton, Boolean(entry.favorite));
+    favoriteButton.addEventListener("click", function() {
+        toggleFavorite(parseInt(this.dataset.entryId), this);
+    });
+    imageDiv.appendChild(favoriteButton);
+
     // カードに画像領域を追加
     lastCard.appendChild(imageDiv);
+}
+
+// お気に入りボタンの表示を更新する
+function updateFavoriteButton(button, favorite) {
+    button.dataset.favorite = favorite ? "true" : "false";
+    button.classList.toggle("is-favorite", favorite);
+    button.innerHTML = favorite
+        ? '<i class="fa-solid fa-star"></i>'
+        : '<i class="fa-regular fa-star"></i>';
+    button.title = favorite ? "お気に入りから外す" : "お気に入りに追加";
+    button.setAttribute("aria-label", button.title);
+    button.setAttribute("aria-pressed", favorite ? "true" : "false");
+}
+
+async function toggleFavorite(entryId, button) {
+    const favorite = button.dataset.favorite !== "true";
+    button.disabled = true;
+    try {
+        const result = await pywebview.api.api_set_favorite(entryId, favorite);
+        if (!result.success) {
+            alert(result.error_info || "お気に入りを変更できませんでした。");
+            return;
+        }
+        updateFavoriteButton(button, Boolean(result.favorite));
+    }
+    finally {
+        button.disabled = false;
+    }
 }
 
 // 最後のエラー情報を追加する

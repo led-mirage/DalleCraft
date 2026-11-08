@@ -126,6 +126,31 @@ class IndexHtmlTest(unittest.TestCase):
         self.assertIn("regenerateImage(parseInt(target.dataset.entryId))", source)
         self.assertIn("pywebview.api.api_regenerate_image(entryId, getQuickSettings())", source)
 
+    def test_supports_favoriting_generated_images(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('favoriteButton.className = "favorite-button"', source)
+        self.assertIn("updateFavoriteButton(favoriteButton, Boolean(entry.favorite))", source)
+        self.assertIn("pywebview.api.api_set_favorite(entryId, favorite)", source)
+        self.assertIn('button.setAttribute("aria-pressed"', source)
+
+    def test_displays_modals_above_favorite_buttons(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "css" / "style.css"
+        ).read_text(encoding="utf-8")
+        modal_rule = re.search(r"\.modal-background\s*\{(.*?)\}", source, re.DOTALL)
+        favorite_rule = re.search(r"\.favorite-button\s*\{(.*?)\}", source, re.DOTALL)
+
+        self.assertIsNotNone(modal_rule)
+        self.assertIsNotNone(favorite_rule)
+        modal_z_index = int(re.search(r"z-index:\s*(\d+)", modal_rule.group(1)).group(1))
+        favorite_z_index = int(
+            re.search(r"z-index:\s*(\d+)", favorite_rule.group(1)).group(1)
+        )
+        self.assertGreater(modal_z_index, favorite_z_index)
+
     def test_uses_generated_image_as_edit_reference(self):
         source = (
             Path(__file__).parents[1] / "src" / "html" / "index.html"

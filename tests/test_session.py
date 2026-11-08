@@ -35,6 +35,16 @@ class SessionEntryTest(unittest.TestCase):
         self.assertEqual([], entry.input_images)
         self.assertEqual({}, entry.token_usage)
         self.assertIsNone(entry.cost_estimate)
+        self.assertFalse(entry.favorite)
+
+    def test_round_trips_favorite(self):
+        data = self.create_entry_data()
+        data["favorite"] = True
+
+        entry = SessionEntry.from_dict(data)
+
+        self.assertTrue(entry.favorite)
+        self.assertTrue(entry.to_dict()["favorite"])
 
     def test_round_trips_input_image_metadata(self):
         data = self.create_entry_data()
