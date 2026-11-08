@@ -168,7 +168,7 @@ Microsoft Foundryには、Global Standardの公開料金を基にした概算単
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/ee76b6ab5e92e9822ce21e193a68cac3bd466ee1db97d66c7cb8cad5933e3698/detection)で確認できます（2026/11/07 v2.5.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/0805191887bb06789a808d00d0d330b35fb23ea335f1225b995782b081712bb4/detection)で確認できます（2026/11/08 v2.6.0）
 
 70個中2個のアンチウィルスエンジンで検出
 
@@ -219,6 +219,7 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 ### 2.6.0 (2026/11/07)
 
 - 生成画像の右クリックメニューから、その画像を参照元にした編集を開始できるように変更
+- 生成画像を削除しても、セッションの概算料金から発生済み料金を減算しないように修正
 
 ### 2.5.0 (2026/11/07)
 

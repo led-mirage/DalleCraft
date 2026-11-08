@@ -586,6 +586,48 @@ class IndexServiceTest(unittest.TestCase):
             service.remove_managed_file.call_args_list,
         )
 
+    def test_deleting_entry_keeps_session_usage_history(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        session.save_to_file = Mock(return_value=True)
+        entry = SessionEntry(
+            "prompt",
+            "",
+            "openai",
+            "gpt-image-2.5-flare",
+            "1024x1024",
+            "high",
+            True,
+            1.0,
+            "generated.png",
+            "generated_thumbnail.png",
+            token_usage={"total_tokens": 1010},
+            cost_estimate={"currency": "USD", "amount": 0.03},
+        )
+        session.add_entry(entry)
+        service = self.create_service(config, session_manager)
+        service.remove_entry_files = Mock()
+
+        service.api_delete_entry(entry.id)
+
+        self.assertIsNone(session.find_entry(entry.id))
+        self.assertEqual(1, len(session.usage_history))
+        self.assertEqual(0.03, session.usage_history[0]["cost_estimate"]["amount"])
+        session.save_to_file.assert_called_once_with()
+
+        service.window = Mock()
+        service.api_refresh_index_view()
+        evaluated_scripts = [
+            called.args[0]
+            for called in service.window.evaluate_js.call_args_list
+        ]
+        self.assertTrue(any(
+            script.startswith("setSessionUsageHistory(")
+            and '"amount": 0.03' in script
+            for script in evaluated_scripts
+        ))
+
     def test_persists_input_images_under_log_directory(self):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")
         service = self.create_service(config)

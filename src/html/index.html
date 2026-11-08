@@ -321,6 +321,11 @@ function initCurrentApiType(apiType) {
 
 // 現在表示中のセッションの概算料金を更新する
 function updateSessionCostEntry(entry) {
+    setSessionCostEntry(entry);
+    renderSessionCostEstimate();
+}
+
+function setSessionCostEntry(entry) {
     if (!entry || entry.id === undefined || !entry.success) {
         return;
     }
@@ -334,11 +339,11 @@ function updateSessionCostEntry(entry) {
         amount: Number.isFinite(amount) && amount >= 0 ? amount : null,
         currency: currency || null
     });
-    renderSessionCostEstimate();
 }
 
-function removeSessionCostEntry(entryId) {
-    sessionCostEntries.delete(entryId);
+function setSessionUsageHistory(usageHistory) {
+    sessionCostEntries.clear();
+    (usageHistory || []).forEach(setSessionCostEntry);
     renderSessionCostEstimate();
 }
 
@@ -393,7 +398,16 @@ function renderSessionCostEstimate() {
         details.push("料金を算出できる画像がありません");
     }
 
-    details.push(`集計対象: ${estimatedCount}/${totalCount}件`);
+    const unavailableCount = totalCount - estimatedCount;
+    const visibleImageCount = document.querySelectorAll(
+        "#dalle-session .prompt-image-card > .image"
+    ).length;
+    const deletedImageCount = Math.max(0, totalCount - visibleImageCount);
+    details.push(`料金集計: ${estimatedCount}件`);
+    details.push(`削除済み画像: ${deletedImageCount}件`);
+    if (unavailableCount > 0) {
+        details.push(`算出不可: ${unavailableCount}件`);
+    }
     details.push("pricing.jsonの単価に基づく概算です");
     indicator.title = details.join("\n");
     indicator.hidden = false;
@@ -1015,7 +1029,7 @@ async function deleteCard(cardId) {
     await pywebview.api.api_delete_entry(cardId);
     const card = document.getElementById(`card-${cardId}`);
     card.remove();
-    removeSessionCostEntry(cardId);
+    renderSessionCostEstimate();
 }
 
 // 名前を付けて画像を保存する

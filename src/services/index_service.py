@@ -454,6 +454,9 @@ class IndexService:
                         image_b64 = base64.b64encode(image_file.read()).decode("utf-8")
                         entry_dict["image_base64"] = image_b64
                 self.window.evaluate_js(f"addEntry({json.dumps(entry_dict)})")
+            self.window.evaluate_js(
+                f"setSessionUsageHistory({json.dumps(session.get_usage_history())})"
+            )
 
     # --------------------------------------------------------------------------
     # JavaScriptから呼び出されるAPI群
@@ -461,7 +464,7 @@ class IndexService:
 
     def api_refresh_index_view(self):
         session = self.session_manager.get_current_session()
-        if len(session.entries) > 0:
+        if len(session.entries) > 0 or len(session.usage_history) > 0:
             self.refresh_view(session)
 
     def api_update_generation_options(self, options: dict) -> dict:

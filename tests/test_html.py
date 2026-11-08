@@ -159,10 +159,14 @@ class IndexHtmlTest(unittest.TestCase):
         self.assertIn("function updateSessionCostEntry(entry)", source)
         self.assertIn("function renderSessionCostEstimate()", source)
         self.assertIn("updateSessionCostEntry(entry)", source)
-        self.assertIn("removeSessionCostEntry(cardId)", source)
+        self.assertIn("function setSessionUsageHistory(usageHistory)", source)
+        self.assertNotIn("removeSessionCostEntry(cardId)", source)
         self.assertIn("resetSessionCostEstimate()", source)
         self.assertIn("API料金概算: ${formatSessionCost(currency, amount, 3)}", source)
-        self.assertIn('details.push(`集計対象: ${estimatedCount}/${totalCount}件`)', source)
+        self.assertIn('details.push(`料金集計: ${estimatedCount}件`)', source)
+        self.assertIn('details.push(`削除済み画像: ${deletedImageCount}件`)', source)
+        self.assertIn('details.push(`算出不可: ${unavailableCount}件`)', source)
+        self.assertIn("renderSessionCostEstimate();", source)
 
 
 if __name__ == "__main__":
