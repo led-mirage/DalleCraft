@@ -20,11 +20,20 @@ class AppWindow:
         window_title = f"{APP_NAME}  ver {APP_VERSION} - {logfile_name}"
         self._window.set_title(window_title)
 
-    def open_file_dialog(self, filename: str) -> str:
+    def open_file_dialog(self, filename: str) -> str | None:
         file_types = ('Image Files (*.png)', 'All files (*.*)')
         result = self._window.create_file_dialog(
             webview.SAVE_DIALOG, directory='/', file_types=file_types, save_filename=filename
         )
+        return result
+
+    def open_folder_dialog(self) -> str | None:
+        result = self._window.create_file_dialog(
+            webview.FOLDER_DIALOG,
+            directory='/',
+        )
+        if isinstance(result, (list, tuple)):
+            return result[0] if result else None
         return result
     
     def evaluate_js(self, js: str):

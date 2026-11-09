@@ -58,6 +58,9 @@ class Api:
     def api_save_image(self, entry_id: int):
         return self.index_service.api_save_image(entry_id)
 
+    def api_export_session_images(self, target: str) -> dict:
+        return self.index_service.api_export_session_images(target)
+
     def api_copy_image(self, entry_id: int) -> dict:
         return self.index_service.api_copy_image(entry_id)
 

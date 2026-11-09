@@ -22,6 +22,9 @@
                     <i class="fa-solid fa-plus"></i><span class="tooltiptext">新しいセッション</span></button>
                 </li>
                 <li style="width: 1.25rem;"></li>
+                <li><button id="export-session-button" onclick="openSessionExportDialog()" class="tooltip">
+                    <i class="fa-solid fa-download"></i><span class="tooltiptext">セッション画像を一括保存</span></button>
+                </li>
                 <li><button id="delete-button" onclick="deleteSession()" class="tooltip">
                     <i class="fa-regular fa-trash-can"></i><span class="tooltiptext">削除</span></button>
                 </li>
@@ -131,6 +134,30 @@
         </div>
     </div>
 </div>
+<!-- セッション画像一括保存モーダル -->
+<div id="session-export-modal" class="modal-background">
+    <div class="session-export-modal-content" role="dialog" aria-modal="true" aria-labelledby="session-export-modal-title">
+        <div class="session-export-modal-header">
+            <span id="session-export-modal-title">セッション画像を一括保存</span>
+            <button id="session-export-close-button" type="button" aria-label="閉じる" onclick="closeSessionExportDialog()">&times;</button>
+        </div>
+        <div class="session-export-modal-body">
+            <p>保存する画像を選択してください。</p>
+            <label>
+                <input id="export-target-all" type="radio" name="export-target" value="all" checked>
+                すべての画像（<span id="export-all-count">0</span>枚）
+            </label>
+            <label>
+                <input id="export-target-favorites" type="radio" name="export-target" value="favorites">
+                お気に入りのみ（<span id="export-favorite-count">0</span>枚）
+            </label>
+        </div>
+        <div class="session-export-modal-actions">
+            <button type="button" onclick="closeSessionExportDialog()">キャンセル</button>
+            <button id="session-export-submit-button" type="button" onclick="exportSessionImages()">保存先を選択</button>
+        </div>
+    </div>
+</div>
 
 <script src="js/image-size.js"></script>
 <script>
@@ -154,6 +181,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     initImageModal();
     initImageInfoModal();
+    initSessionExportModal();
     initInputImageHandlers();
 });
 
@@ -1140,6 +1168,70 @@ async function deleteCard(cardId) {
 // 名前を付けて画像を保存する
 async function saveImage(cardId) {
     await pywebview.api.api_save_image(cardId);
+}
+
+// セッション画像一括保存モーダルを初期化する
+function initSessionExportModal() {
+    const modal = document.getElementById("session-export-modal");
+    modal.addEventListener("click", function(event) {
+        if (event.target === modal) {
+            closeSessionExportDialog();
+        }
+    });
+    document.addEventListener("keydown", function(event) {
+        if (event.key === "Escape" && modal.style.display === "block") {
+            closeSessionExportDialog();
+        }
+    });
+}
+
+// セッション画像一括保存モーダルを開く
+function openSessionExportDialog() {
+    const imageButtons = document.querySelectorAll(".favorite-button");
+    const favoriteButtons = document.querySelectorAll(".favorite-button.is-favorite");
+    if (imageButtons.length === 0) {
+        alert("このセッションには保存できる画像がありません。");
+        return;
+    }
+
+    document.getElementById("export-all-count").textContent = String(imageButtons.length);
+    document.getElementById("export-favorite-count").textContent = String(favoriteButtons.length);
+    document.getElementById("export-target-all").checked = true;
+    document.getElementById("export-target-favorites").disabled = favoriteButtons.length === 0;
+    document.getElementById("session-export-modal").style.display = "block";
+}
+
+// セッション画像一括保存モーダルを閉じる
+function closeSessionExportDialog() {
+    document.getElementById("session-export-modal").style.display = "none";
+}
+
+// 選択したセッション画像をフォルダーへ保存する
+async function exportSessionImages() {
+    const target = document.querySelector('input[name="export-target"]:checked').value;
+    const submitButton = document.getElementById("session-export-submit-button");
+    submitButton.disabled = true;
+    try {
+        const result = await pywebview.api.api_export_session_images(target);
+        if (result.canceled) return;
+
+        closeSessionExportDialog();
+        if (!result.success) {
+            alert(result.error_info || "画像を保存できませんでした。");
+        }
+        else if (result.skipped_count > 0) {
+            alert(result.error_info);
+        }
+        else {
+            showToast(`${result.saved_count}枚の画像を保存しました`);
+        }
+    }
+    catch (error) {
+        alert(`画像を保存できませんでした。\n${error}`);
+    }
+    finally {
+        submitButton.disabled = false;
+    }
 }
 
 // 画像をクリップボードにコピーする
