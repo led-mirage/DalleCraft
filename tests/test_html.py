@@ -163,6 +163,18 @@ class IndexHtmlTest(unittest.TestCase):
         self.assertIn("pywebview.api.api_set_image_name(entryId, imageName)", source)
         self.assertIn("updateImageName(entryId, result.image_name)", source)
 
+    def test_supports_exporting_session_images(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('id="export-session-button"', source)
+        self.assertIn('id="export-target-all"', source)
+        self.assertIn('id="export-target-favorites"', source)
+        self.assertIn("function openSessionExportDialog()", source)
+        self.assertIn("pywebview.api.api_export_session_images(target)", source)
+        self.assertIn("result.skipped_count > 0", source)
+
     def test_uses_generated_image_as_edit_reference(self):
         source = (
             Path(__file__).parents[1] / "src" / "html" / "index.html"

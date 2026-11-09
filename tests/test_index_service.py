@@ -775,6 +775,107 @@ class IndexServiceTest(unittest.TestCase):
 
         window.open_file_dialog.assert_called_once_with("夕焼けの海.png")
 
+    def test_exports_all_session_images_without_overwriting_existing_files(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        entries = [
+            SessionEntry(
+                "first", "", "openai", "gpt-image-2.5-flare", "1024x1024",
+                "high", True, 1.0, "first.png", "first_thumbnail.png",
+                image_name="夕焼け",
+            ),
+            SessionEntry(
+                "second", "", "openai", "gpt-image-2.5-flare", "1024x1024",
+                "high", True, 1.0, "second.png", "second_thumbnail.png",
+                favorite=True,
+            ),
+            SessionEntry(
+                "missing", "", "openai", "gpt-image-2.5-flare", "1024x1024",
+                "high", True, 1.0, "missing.png", "missing_thumbnail.png",
+            ),
+        ]
+        for entry in entries:
+            session.add_entry(entry)
+
+        with tempfile.TemporaryDirectory() as image_dir, tempfile.TemporaryDirectory() as export_dir:
+            (Path(image_dir) / "first.png").write_bytes(b"first")
+            (Path(image_dir) / "second.png").write_bytes(b"second")
+            (Path(export_dir) / "夕焼け.png").write_bytes(b"existing")
+            window = Mock()
+            window.open_folder_dialog.return_value = export_dir
+            service = IndexService(window, config, session_manager)
+            self.addCleanup(service.close)
+
+            with patch("services.index_service.IMAGE_DIR", image_dir):
+                result = service.api_export_session_images("all")
+
+            self.assertTrue(result["success"])
+            self.assertEqual(2, result["saved_count"])
+            self.assertEqual(1, result["skipped_count"])
+            self.assertEqual(b"existing", (Path(export_dir) / "夕焼け.png").read_bytes())
+            self.assertEqual(b"first", (Path(export_dir) / "夕焼け (2).png").read_bytes())
+            self.assertEqual(b"second", (Path(export_dir) / "second.png").read_bytes())
+
+    def test_exports_only_favorite_session_images(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        for filename, favorite in (("ordinary.png", False), ("favorite.png", True)):
+            session.add_entry(SessionEntry(
+                filename, "", "openai", "gpt-image-2.5-flare", "1024x1024",
+                "high", True, 1.0, filename, f"{filename}_thumbnail.png",
+                favorite=favorite,
+            ))
+
+        with tempfile.TemporaryDirectory() as image_dir, tempfile.TemporaryDirectory() as export_dir:
+            for filename in ("ordinary.png", "favorite.png"):
+                (Path(image_dir) / filename).write_bytes(filename.encode("ascii"))
+            window = Mock()
+            window.open_folder_dialog.return_value = export_dir
+            service = IndexService(window, config, session_manager)
+            self.addCleanup(service.close)
+
+            with patch("services.index_service.IMAGE_DIR", image_dir):
+                result = service.api_export_session_images("favorites")
+
+            self.assertTrue(result["success"])
+            self.assertEqual(1, result["saved_count"])
+            self.assertFalse((Path(export_dir) / "ordinary.png").exists())
+            self.assertTrue((Path(export_dir) / "favorite.png").exists())
+
+    def test_cancels_session_image_export_without_copying(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        session.add_entry(SessionEntry(
+            "prompt", "", "openai", "gpt-image-2.5-flare", "1024x1024",
+            "high", True, 1.0, "generated.png", "generated_thumbnail.png",
+        ))
+        window = Mock()
+        window.open_folder_dialog.return_value = None
+        service = IndexService(window, config, session_manager)
+        self.addCleanup(service.close)
+
+        result = service.api_export_session_images("all")
+
+        self.assertFalse(result["success"])
+        self.assertTrue(result["canceled"])
+        self.assertEqual(0, result["saved_count"])
+
+    def test_rejects_invalid_session_image_export_target(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session_manager.create_new_session()
+        window = Mock()
+        service = IndexService(window, config, session_manager)
+        self.addCleanup(service.close)
+
+        result = service.api_export_session_images("invalid")
+
+        self.assertFalse(result["success"])
+        window.open_folder_dialog.assert_not_called()
+
     def test_persists_input_images_under_log_directory(self):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")
         service = self.create_service(config)

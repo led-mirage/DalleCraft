@@ -18,14 +18,14 @@ OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとG
 
 ## 💎 スクリーンショット
 
-<img src="doc/screenshot_2.5.0.png" width="550"><br>
+<img src="doc/screenshot_2.8.0.png" width="550"><br>
 <img src="doc/screenshot_2.5.0_settings.png" width="550"><br>
 
 ### 🖼️ 作例
 
 <div class="page"/>
-<img src="doc/generated_image_2.5.0.png" width="550"><br>
-※ 解像度：2048 x 1152、品質：Max
+<img src="doc/generated_image_2.8.0.png" width="550"><br>
+※ 解像度：1920 x 1280、品質：Max
 
 ## 💎 特徴
 
@@ -41,6 +41,7 @@ OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとG
 - 生成画像の右クリックメニューから画像をクリップボードへコピー
 - 生成画像の右上にある星ボタンでお気に入りを登録・解除
 - 生成画像に任意の画像名を設定し、個別保存時の初期ファイル名として利用
+- セッション内のすべての画像、またはお気に入り画像だけを任意のフォルダーへ一括保存
 - 生成画像の右クリックメニューから、その画像を参照元にした編集を開始
 - 元のプロンプトと参照画像を使った画像の再作成
 - 拡大表示した画像をマウス操作でズーム・移動
@@ -170,7 +171,7 @@ Microsoft Foundryには、Global Standardの公開料金を基にした概算単
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/74c8596d3f063be66c63b869f6d32f0334c519a21ad003d8bb4b3c55e7c5c124/detection)で確認できます（2026/11/08 v2.7.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/f9a5cb3525578ef525c7b772c8cc72ee698ea54ce4d37aac6500d8e147171d71/detection)で確認できます（2026/11/09 v2.8.0）
 
 70個中2個のアンチウィルスエンジンで検出
 
@@ -217,6 +218,10 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 <div class="page"/>
 
 ## 💎 バージョン履歴
+
+### 2.8.0 (2026/11/09)
+
+- セッション内のすべての画像、またはお気に入り画像だけを任意のフォルダーへ一括保存できるように変更
 
 ### 2.7.0 (2026/11/08)
 

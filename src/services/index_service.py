@@ -694,6 +694,116 @@ class IndexService:
             src_path = os.path.join(IMAGE_DIR, entry.image_filename)
             shutil.copy2(src_path, dst_path)
 
+    @staticmethod
+    def create_unique_export_path(directory: str, filename: str) -> str:
+        destination_path = os.path.join(directory, filename)
+        if not os.path.exists(destination_path):
+            return destination_path
+
+        base_name, extension = os.path.splitext(filename)
+        number = 2
+        while True:
+            destination_path = os.path.join(
+                directory,
+                f"{base_name} ({number}){extension}",
+            )
+            if not os.path.exists(destination_path):
+                return destination_path
+            number += 1
+
+    def api_export_session_images(self, target: str) -> dict:
+        if target not in {"all", "favorites"}:
+            return {
+                "success": False,
+                "canceled": False,
+                "saved_count": 0,
+                "skipped_count": 0,
+                "error_info": "保存対象の指定が正しくありません。",
+            }
+
+        session = self.session_manager.get_current_session()
+        entries = [
+            entry
+            for entry in session.entries
+            if entry.success
+            and entry.image_filename
+            and (target == "all" or entry.favorite)
+        ]
+        if not entries:
+            target_name = "お気に入り画像" if target == "favorites" else "画像"
+            return {
+                "success": False,
+                "canceled": False,
+                "saved_count": 0,
+                "skipped_count": 0,
+                "error_info": f"保存できる{target_name}がありません。",
+            }
+
+        destination_directory = self.window.open_folder_dialog()
+        if not destination_directory:
+            return {
+                "success": False,
+                "canceled": True,
+                "saved_count": 0,
+                "skipped_count": 0,
+                "error_info": "",
+            }
+        if not os.path.isdir(destination_directory):
+            return {
+                "success": False,
+                "canceled": False,
+                "saved_count": 0,
+                "skipped_count": len(entries),
+                "error_info": "保存先フォルダーが見つかりません。",
+            }
+
+        saved_count = 0
+        skipped_count = 0
+        image_directory = os.path.abspath(IMAGE_DIR)
+        for entry in entries:
+            try:
+                source_path = os.path.abspath(
+                    os.path.join(image_directory, entry.image_filename)
+                )
+                if (
+                    os.path.commonpath([image_directory, source_path])
+                    != image_directory
+                    or not os.path.isfile(source_path)
+                ):
+                    skipped_count += 1
+                    continue
+
+                export_filename = os.path.basename(entry.get_export_filename())
+                if not export_filename:
+                    skipped_count += 1
+                    continue
+                destination_path = self.create_unique_export_path(
+                    destination_directory,
+                    export_filename,
+                )
+                shutil.copy2(source_path, destination_path)
+                saved_count += 1
+            except (OSError, ValueError):
+                skipped_count += 1
+
+        if saved_count == 0:
+            error_info = "画像を保存できませんでした。元画像と保存先を確認してください。"
+        elif skipped_count:
+            error_info = (
+                f"{saved_count}枚を保存しました。"
+                f"{skipped_count}枚は保存できませんでした。"
+            )
+        else:
+            error_info = ""
+
+        return {
+            "success": saved_count > 0,
+            "canceled": False,
+            "saved_count": saved_count,
+            "skipped_count": skipped_count,
+            "error_info": error_info,
+        }
+
     def api_copy_image(self, entry_id: int) -> dict:
         session = self.session_manager.get_current_session()
         entry = session.find_entry(entry_id)

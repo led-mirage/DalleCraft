@@ -568,6 +568,77 @@ pre {
     font-weight: bold;
 }
 
+/* セッション画像一括保存モーダル */
+.session-export-modal-content {
+    width: min(26rem, calc(100% - 2rem));
+    margin: 15vh auto 0;
+    box-sizing: border-box;
+    border: 1px solid #aaa;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.3);
+}
+
+.session-export-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #ddd;
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+.session-export-modal-header button {
+    border: 0;
+    background: transparent;
+    color: #777;
+    cursor: pointer;
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.session-export-modal-body {
+    padding: 0.75rem 1.25rem 1rem;
+}
+
+.session-export-modal-body label {
+    display: block;
+    margin-top: 0.75rem;
+    cursor: pointer;
+}
+
+.session-export-modal-body label:has(input:disabled) {
+    color: #999;
+    cursor: default;
+}
+
+.session-export-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0 1.25rem 1.25rem;
+}
+
+.session-export-modal-actions button {
+    padding: 0.5rem 0.8rem;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    background: #f5f5f5;
+    cursor: pointer;
+}
+
+.session-export-modal-actions button:last-child {
+    border-color: #0069d9;
+    background: #007bff;
+    color: #fff;
+}
+
+.session-export-modal-actions button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
 /* 画像表示モーダル */
 .image-modal-viewport {
     position: absolute;
