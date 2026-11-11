@@ -174,7 +174,7 @@ Microsoft Foundryには、Global Standardの公開料金を基にした概算単
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/2e1f1aab389dba9dd58d720928895cb5d4f39c689a0603fd64bd57f896650195/detection)で確認できます（2026/11/12 v2.9.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/d4c552f85a20b4e9c543dd6a2836a25ee2dfc0b8c0caf89d477a5ddd2f67b2b7/detection)で確認できます（2026/11/12 v2.9.0）
 
 77個中2個のアンチウィルスエンジンで検出
 
