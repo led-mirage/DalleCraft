@@ -32,6 +32,14 @@ class IndexServiceTest(unittest.TestCase):
         Image.new("RGB", size, "red").save(buffer, format="PNG")
         return base64.b64encode(buffer.getvalue()).decode("ascii")
 
+    def create_mask_base64(self, size=(8, 8), selected=True):
+        mask = Image.new("RGBA", size, (255, 255, 255, 255))
+        if selected:
+            mask.putpixel((0, 0), (0, 0, 0, 0))
+        buffer = io.BytesIO()
+        mask.save(buffer, format="PNG")
+        return base64.b64encode(buffer.getvalue()).decode("ascii")
+
     @patch("services.index_service.GPTImageClient")
     def test_creates_foundry_client_with_selected_deployment(self, client_class):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")
@@ -90,6 +98,7 @@ class IndexServiceTest(unittest.TestCase):
             size="1536x1024",
             quality="high",
             input_image_paths=None,
+            mask_path=None,
         )
         config_save.assert_called_once_with("config.json")
         self.assertEqual("1536x1024", config.model["size"])
@@ -198,6 +207,56 @@ class IndexServiceTest(unittest.TestCase):
             [image["id"] for image in resolved],
         )
 
+    def test_registers_edit_mask_for_input_image(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        service = self.create_service(config)
+        registered = service.api_register_input_image({
+            "filename": "source.png",
+            "source": "drop",
+            "mime_type": "image/png",
+            "image_base64": self.create_png_base64(),
+        })
+
+        result = service.api_set_input_image_mask(
+            registered["input_image_id"],
+            self.create_mask_base64(),
+        )
+
+        self.assertTrue(result["success"])
+        self.assertTrue(result["has_mask"])
+        stored_mask = base64.b64decode(
+            service.api_get_pending_input_image_mask_base64(
+                registered["input_image_id"]
+            )
+        )
+        with Image.open(io.BytesIO(stored_mask)) as mask:
+            self.assertEqual((255, 255, 255, 0), mask.getpixel((0, 0)))
+        mask_path = service._pending_input_images[
+            registered["input_image_id"]
+        ]["mask_path"]
+        self.assertTrue(os.path.exists(mask_path))
+        with Image.open(mask_path) as mask:
+            self.assertEqual((8, 8), mask.size)
+            self.assertEqual(0, mask.getchannel("A").getextrema()[0])
+
+    def test_rejects_edit_mask_with_wrong_dimensions(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        service = self.create_service(config)
+        registered = service.api_register_input_image({
+            "filename": "source.png",
+            "source": "drop",
+            "mime_type": "image/png",
+            "image_base64": self.create_png_base64(),
+        })
+
+        result = service.api_set_input_image_mask(
+            registered["input_image_id"],
+            self.create_mask_base64((4, 4)),
+        )
+
+        self.assertFalse(result["success"])
+        self.assertIn("サイズが一致しません", result["error_info"])
+
     def test_prepares_generated_image_for_editing(self):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")
         session_manager = Mock()
@@ -215,6 +274,7 @@ class IndexServiceTest(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual("generated.png", result["filename"])
         self.assertEqual("generated", result["source"])
+        self.assertEqual(1, result["source_entry_id"])
         self.assertTrue(result["preview_base64"])
         self.assertIn(result["input_image_id"], service._pending_input_images)
 
@@ -360,9 +420,61 @@ class IndexServiceTest(unittest.TestCase):
             size=config.model["size"],
             quality=config.model["quality"],
             input_image_paths=[pending_path],
+            mask_path=None,
         )
         self.assertEqual("source.png", result["input_images"][0]["original_name"])
         self.assertNotIn(registered["input_image_id"], service._pending_input_images)
+        log.assert_called_once()
+
+    @patch("services.index_service.ImageGenerationLogger.log")
+    @patch.object(Config, "save")
+    def test_generates_edit_with_registered_mask(self, config_save, log):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        session.save_to_file = Mock(return_value=True)
+        service = self.create_service(config, session_manager)
+        registered = service.api_register_input_image({
+            "filename": "source.png",
+            "source": "generated",
+            "mime_type": "image/png",
+            "image_base64": self.create_png_base64(),
+        })
+        service.api_set_input_image_mask(
+            registered["input_image_id"],
+            self.create_mask_base64(),
+        )
+        pending = service._pending_input_images[registered["input_image_id"]]
+        service.gen_image = Mock(return_value=("aW1hZ2U=", "", 1.25, {}))
+        service.save_image = Mock(return_value="images/generated.png")
+        service.save_resized_image = Mock(return_value="images/generated_thumbnail.png")
+        service.persist_input_image = Mock(return_value={
+            "filename": "input_image.png",
+            "thumbnail_filename": "input_image_thumbnail.png",
+            "original_name": "source.png",
+            "source": "generated",
+            "mime_type": "image/png",
+            "mask_filename": "input_mask.png",
+            "has_mask": True,
+        })
+
+        result = service.api_gen_image(
+            "change only the selected area",
+            {
+                "size": config.model["size"],
+                "quality": config.model["quality"],
+                "input_image_ids": [registered["input_image_id"]],
+            },
+        )
+
+        service.gen_image.assert_called_once_with(
+            "change only the selected area",
+            size=config.model["size"],
+            quality=config.model["quality"],
+            input_image_paths=[pending["path"]],
+            mask_path=pending["mask_path"],
+        )
+        self.assertTrue(result["input_images"][0]["has_mask"])
         log.assert_called_once()
 
     @patch("services.index_service.ImageGenerationLogger.log")
@@ -409,6 +521,7 @@ class IndexServiceTest(unittest.TestCase):
             size=config.model["size"],
             quality=config.model["quality"],
             input_image_paths=pending_paths,
+            mask_path=None,
         )
         self.assertEqual(
             ["first.png", "second.png"],
@@ -490,6 +603,50 @@ class IndexServiceTest(unittest.TestCase):
             )
         )
 
+    def test_regenerates_with_original_edit_mask(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        session_manager = SessionManager()
+        session = session_manager.create_new_session()
+        original = SessionEntry(
+            "original prompt",
+            "",
+            "openai",
+            "gpt-image-2.5-flare",
+            "1024x1024",
+            "high",
+            True,
+            1.0,
+            "generated.png",
+            "generated_thumbnail.png",
+            input_images=[{
+                "filename": "input.png",
+                "original_name": "source.png",
+                "source": "generated",
+                "mime_type": "image/png",
+                "mask_filename": "mask.png",
+                "has_mask": True,
+            }],
+        )
+        session.add_entry(original)
+        service = self.create_service(config, session_manager)
+        service.api_gen_image = Mock(return_value={"id": 2, "success": True})
+        service.register_edit_mask = Mock(wraps=service.register_edit_mask)
+
+        with tempfile.TemporaryDirectory() as input_dir:
+            (Path(input_dir) / "input.png").write_bytes(
+                base64.b64decode(self.create_png_base64())
+            )
+            (Path(input_dir) / "mask.png").write_bytes(
+                base64.b64decode(self.create_mask_base64())
+            )
+            with patch("services.index_service.INPUT_IMAGE_DIR", input_dir):
+                result = service.api_regenerate_image(original.id)
+
+        self.assertTrue(result["success"])
+        service.register_edit_mask.assert_called_once()
+        _, mask_base64 = service.register_edit_mask.call_args.args
+        self.assertEqual(self.create_mask_base64(), mask_base64)
+
     def test_regeneration_without_original_input_ignores_pending_input(self):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")
         session_manager = SessionManager()
@@ -569,6 +726,7 @@ class IndexServiceTest(unittest.TestCase):
             input_images=[{
                 "filename": "input.png",
                 "thumbnail_filename": "input_thumbnail.png",
+                "mask_filename": "input_mask.png",
             }],
         )
 
@@ -582,6 +740,8 @@ class IndexServiceTest(unittest.TestCase):
                 call("input.png", IMAGE_DIR),
                 call("input_thumbnail.png", INPUT_IMAGE_DIR),
                 call("input_thumbnail.png", IMAGE_DIR),
+                call("input_mask.png", INPUT_IMAGE_DIR),
+                call("input_mask.png", IMAGE_DIR),
             ],
             service.remove_managed_file.call_args_list,
         )
@@ -885,6 +1045,10 @@ class IndexServiceTest(unittest.TestCase):
             "mime_type": "image/png",
             "image_base64": self.create_png_base64(),
         })
+        service.api_set_input_image_mask(
+            registered["input_image_id"],
+            self.create_mask_base64(),
+        )
         pending = service._pending_input_images[registered["input_image_id"]]
 
         with tempfile.TemporaryDirectory() as directory:
@@ -896,6 +1060,8 @@ class IndexServiceTest(unittest.TestCase):
             self.assertTrue(
                 (input_directory / metadata["thumbnail_filename"]).exists()
             )
+            self.assertTrue((input_directory / metadata["mask_filename"]).exists())
+            self.assertTrue(metadata["has_mask"])
             self.assertEqual(8, metadata["original_width"])
             self.assertEqual(8, metadata["width"])
             self.assertFalse(metadata["resized"])

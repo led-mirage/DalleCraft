@@ -49,11 +49,21 @@ class Api:
     def api_prepare_image_edit(self, entry_id: int) -> dict:
         return self.index_service.api_prepare_image_edit(entry_id)
 
+    def api_set_input_image_mask(
+        self,
+        input_image_id: str,
+        mask_base64: str,
+    ) -> dict:
+        return self.index_service.api_set_input_image_mask(input_image_id, mask_base64)
+
     def api_release_input_image(self, input_image_id: str) -> dict:
         return self.index_service.api_release_input_image(input_image_id)
 
     def api_get_pending_input_image_base64(self, input_image_id: str) -> str:
         return self.index_service.api_get_pending_input_image_base64(input_image_id)
+
+    def api_get_pending_input_image_mask_base64(self, input_image_id: str) -> str:
+        return self.index_service.api_get_pending_input_image_mask_base64(input_image_id)
 
     def api_save_image(self, entry_id: int):
         return self.index_service.api_save_image(entry_id)

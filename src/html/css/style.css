@@ -692,6 +692,163 @@ pre {
     pointer-events: none;
     z-index: 2;
 }
+
+/* 編集範囲指定モーダル */
+.image-mask-editor {
+    display: flex;
+    flex-direction: column;
+    width: min(960px, calc(100% - 2rem));
+    height: min(90vh, 760px);
+    margin: auto;
+    overflow: hidden;
+    border: 1px solid #777;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+}
+
+.image-mask-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 0 0 auto;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #ddd;
+    font-size: 1.05rem;
+    font-weight: bold;
+}
+
+.image-mask-editor-header button {
+    padding: 0;
+    border: 0;
+    color: #777;
+    background: transparent;
+    cursor: pointer;
+    font-size: 1.6rem;
+    line-height: 1;
+}
+
+.image-mask-viewport {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    background-color: #252525;
+}
+
+.image-mask-stage {
+    position: absolute;
+    transform-origin: center center;
+    will-change: transform;
+}
+
+.image-mask-stage img,
+.image-mask-stage canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.image-mask-stage img {
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.image-mask-stage canvas {
+    opacity: 0.38;
+    cursor: none;
+    touch-action: none;
+}
+
+.image-mask-stage canvas.pan-ready {
+    cursor: grab;
+}
+
+.image-mask-stage canvas.panning {
+    cursor: grabbing;
+}
+
+.image-mask-brush-cursor {
+    position: absolute;
+    z-index: 2;
+    box-sizing: border-box;
+    transform: translate(-50%, -50%);
+    border: 1px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8);
+    pointer-events: none;
+}
+
+.image-mask-brush-cursor.erasing {
+    border: 2px dashed #ff6b6b;
+    background-color: rgba(0, 0, 0, 0.18);
+    box-shadow: 0 0 0 1px #fff;
+}
+
+.image-mask-brush-cursor[hidden] {
+    display: none;
+}
+
+.image-mask-editor-controls {
+    flex: 0 0 auto;
+    padding: 0.75rem 1rem 1rem;
+    border-top: 1px solid #ddd;
+}
+
+.image-mask-brush-control {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.image-mask-brush-control input {
+    flex: 1;
+    max-width: 24rem;
+}
+
+.image-mask-brush-control output {
+    width: 3.5rem;
+    color: #555;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.image-mask-help {
+    margin-top: 0.45rem;
+    color: #666;
+    font-size: 0.78rem;
+}
+
+.image-mask-editor-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.image-mask-editor-actions span {
+    flex: 1;
+}
+
+.image-mask-editor-actions button {
+    padding: 0.5rem 0.8rem;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    background: #f5f5f5;
+    cursor: pointer;
+}
+
+.image-mask-editor-actions #image-mask-apply-button {
+    border-color: #0069d9;
+    color: #fff;
+    background: #007bff;
+}
+
+.image-mask-editor-actions button:disabled {
+    cursor: default;
+    opacity: 0.5;
+}
   
 
 

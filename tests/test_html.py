@@ -34,7 +34,6 @@ class ConfigHtmlTest(unittest.TestCase):
         self.assertIn("populateImageSizeRadios(", source)
         self.assertIn("config.model.size_presets", source)
 
-
 class IndexHtmlTest(unittest.TestCase):
     def test_quick_setting_elements_exist(self):
         source = (
@@ -186,6 +185,29 @@ class IndexHtmlTest(unittest.TestCase):
         self.assertIn("pendingInputImages = [result]", source)
         self.assertIn('document.getElementById("prompt")', source)
         self.assertIn("prompt.focus()", source)
+
+    def test_supports_brush_mask_editing(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('id="masked-edit-from-image"', source)
+        self.assertIn('id="image-mask-canvas"', source)
+        self.assertIn('id="image-mask-brush-size"', source)
+        self.assertIn("handleImageMaskPointerDown", source)
+        self.assertIn('event.button !== 0 && event.button !== 2', source)
+        self.assertIn('erasing ? "destination-out" : "source-over"', source)
+        self.assertIn("imageMaskCanvasHasSelection", source)
+        self.assertIn('cursor.classList.toggle("erasing"', source)
+        self.assertIn("右ドラッグ: 範囲を消去", source)
+        self.assertIn('viewport.addEventListener("wheel"', source)
+        self.assertIn('event.code === "Space"', source)
+        self.assertIn("clearImageMaskSelection", source)
+        self.assertIn("pywebview.api.api_set_input_image_mask", source)
+        self.assertIn("pywebview.api.api_get_pending_input_image_mask_base64", source)
+        self.assertIn("restoreImageMaskSelection", source)
+        self.assertIn("openImageMaskEditor(image, true)", source)
+        self.assertIn("image.source_entry_id === entryId", source)
 
     def test_displays_token_usage_and_estimated_cost(self):
         source = (
