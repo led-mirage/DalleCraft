@@ -115,24 +115,41 @@ class GPTImageClient:
         image_paths: str | list[str],
         size: str = IMAGE_SIZE_AUTO,
         quality: str = IMAGE_QUALITY_AUTO,
+        mask_path: str | None = None,
     ) -> tuple[str, str, dict]:
         paths = [image_paths] if isinstance(image_paths, str) else list(image_paths)
         if not paths:
             raise ValueError("入力画像が指定されていません。")
+        api_prompt = prompt
+        if mask_path:
+            api_prompt = (
+                f"{prompt}\n\n"
+                "The fully transparent area in the mask is the only area to edit. "
+                "Reconstruct that area naturally according to the request. "
+                "Do not render the mask, leave a black or blank patch, or make the result transparent. "
+                "Preserve everything outside the masked area."
+            )
 
         with ExitStack() as stack:
             input_images = [
                 stack.enter_context(open(image_path, "rb"))
                 for image_path in paths
             ]
+            edit_options = {
+                "model": self.model,
+                "image": input_images[0] if len(input_images) == 1 else input_images,
+                "prompt": api_prompt,
+                "size": size,
+                "quality": quality,
+                "background": "opaque",
+                "output_format": "png",
+                "n": 1,
+            }
+            if mask_path:
+                edit_options["mask"] = stack.enter_context(open(mask_path, "rb"))
+
             response = self.client.images.edit(
-                model=self.model,
-                image=input_images[0] if len(input_images) == 1 else input_images,
-                prompt=prompt,
-                size=size,
-                quality=quality,
-                output_format="png",
-                n=1,
+                **edit_options,
             )
 
         image = response.data[0]

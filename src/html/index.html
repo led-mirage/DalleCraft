@@ -108,6 +108,36 @@
     </div>
     <div class="image-modal-help">ホイール: ズーム　ドラッグ: 移動　ダブルクリック: リセット</div>
 </div>
+<!-- 編集範囲指定モーダル -->
+<div id="image-mask-modal" class="modal-background">
+    <div class="image-mask-editor" role="dialog" aria-modal="true" aria-labelledby="image-mask-modal-title">
+        <div class="image-mask-editor-header">
+            <span id="image-mask-modal-title">編集範囲を指定</span>
+            <button id="image-mask-close-button" type="button" aria-label="閉じる">&times;</button>
+        </div>
+        <div id="image-mask-viewport" class="image-mask-viewport">
+            <div id="image-mask-stage" class="image-mask-stage">
+                <img id="image-mask-source" draggable="false" alt="編集元画像">
+                <canvas id="image-mask-canvas"></canvas>
+            </div>
+            <div id="image-mask-brush-cursor" class="image-mask-brush-cursor" hidden></div>
+        </div>
+        <div class="image-mask-editor-controls">
+            <div class="image-mask-brush-control">
+                <label for="image-mask-brush-size">ブラシサイズ</label>
+                <input id="image-mask-brush-size" type="range" min="10" max="300" step="5" value="50">
+                <output id="image-mask-brush-size-value" for="image-mask-brush-size">50 px</output>
+            </div>
+            <div class="image-mask-help">左ドラッグ: 範囲指定　ホイール: 拡大・縮小　Space+ドラッグ: 移動</div>
+            <div class="image-mask-editor-actions">
+                <button id="image-mask-clear-button" type="button" disabled>選択範囲をクリア</button>
+                <span></span>
+                <button id="image-mask-cancel-button" type="button">キャンセル</button>
+                <button id="image-mask-apply-button" type="button" disabled>決定</button>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- 画像情報モーダル -->
 <div id="image-info-modal" class="modal-background">
     <div class="info-modal-content">
@@ -174,12 +204,34 @@ const imageModalView = {
     startX: 0,
     startY: 0
 };
+const imageMaskEditorState = {
+    inputImage: null,
+    editingExisting: false,
+    initialMaskBase64: "",
+    maskRestoreToken: 0,
+    hasSelection: false,
+    saving: false,
+    scale: 1,
+    x: 0,
+    y: 0,
+    displayWidth: 0,
+    displayHeight: 0,
+    spacePressed: false,
+    pointerMode: "",
+    pointerId: null,
+    lastPoint: null,
+    panStartX: 0,
+    panStartY: 0,
+    startX: 0,
+    startY: 0
+};
 
 // DOM初期化
 document.addEventListener("DOMContentLoaded", function() {
     document.addEventListener("contextmenu", handleContextMenu);
 
     initImageModal();
+    initImageMaskEditor();
     initImageInfoModal();
     initSessionExportModal();
     initInputImageHandlers();
@@ -311,6 +363,418 @@ function showImageModal(src, entryId, imageKind) {
         modalImg.dataset.entryId = entryId;
     }
     modal.style.display = "block";
+}
+
+// 編集範囲指定モーダル初期化
+function initImageMaskEditor() {
+    const modal = document.getElementById("image-mask-modal");
+    const viewport = document.getElementById("image-mask-viewport");
+    const sourceImage = document.getElementById("image-mask-source");
+    const canvas = document.getElementById("image-mask-canvas");
+    const brushSize = document.getElementById("image-mask-brush-size");
+
+    document.getElementById("image-mask-close-button").addEventListener("click", function() {
+        closeImageMaskEditor(true);
+    });
+    document.getElementById("image-mask-cancel-button").addEventListener("click", function() {
+        closeImageMaskEditor(true);
+    });
+    document.getElementById("image-mask-clear-button").addEventListener("click", clearImageMaskSelection);
+    document.getElementById("image-mask-apply-button").addEventListener("click", applyImageMaskSelection);
+
+    brushSize.addEventListener("input", function() {
+        document.getElementById("image-mask-brush-size-value").value = `${brushSize.value} px`;
+    });
+
+    sourceImage.addEventListener("load", resetImageMaskEditor);
+    sourceImage.addEventListener("error", function() {
+        alert("編集元の画像を表示できませんでした。");
+        closeImageMaskEditor(true);
+    });
+
+    viewport.addEventListener("wheel", function(event) {
+        if (modal.style.display !== "flex" || !imageMaskEditorState.inputImage) return;
+        event.preventDefault();
+
+        const oldScale = imageMaskEditorState.scale;
+        const zoomFactor = event.deltaY < 0 ? 1.15 : 1 / 1.15;
+        const newScale = Math.min(8, Math.max(1, oldScale * zoomFactor));
+        if (newScale === oldScale) return;
+
+        const viewportRect = viewport.getBoundingClientRect();
+        const pointerX = event.clientX - (viewportRect.left + viewportRect.width / 2);
+        const pointerY = event.clientY - (viewportRect.top + viewportRect.height / 2);
+        const scaleRatio = newScale / oldScale;
+        imageMaskEditorState.x += (1 - scaleRatio) * (pointerX - imageMaskEditorState.x);
+        imageMaskEditorState.y += (1 - scaleRatio) * (pointerY - imageMaskEditorState.y);
+        imageMaskEditorState.scale = newScale;
+        clampImageMaskPosition();
+        updateImageMaskTransform();
+        updateImageMaskBrushCursor(event);
+    }, { passive: false });
+
+    canvas.addEventListener("pointerdown", handleImageMaskPointerDown);
+    canvas.addEventListener("pointermove", handleImageMaskPointerMove);
+    canvas.addEventListener("pointerup", finishImageMaskPointer);
+    canvas.addEventListener("pointercancel", finishImageMaskPointer);
+    canvas.addEventListener("pointerenter", updateImageMaskBrushCursor);
+    canvas.addEventListener("pointerleave", function() {
+        if (!imageMaskEditorState.pointerMode) {
+            document.getElementById("image-mask-brush-cursor").hidden = true;
+        }
+    });
+    canvas.addEventListener("contextmenu", event => event.preventDefault());
+
+    document.addEventListener("keydown", function(event) {
+        if (modal.style.display !== "flex") return;
+        if (event.key === "Escape") {
+            event.preventDefault();
+            closeImageMaskEditor(true);
+        }
+        else if (event.code === "Space") {
+            event.preventDefault();
+            imageMaskEditorState.spacePressed = true;
+            canvas.classList.add("pan-ready");
+            document.getElementById("image-mask-brush-cursor").hidden = true;
+        }
+    });
+    document.addEventListener("keyup", function(event) {
+        if (event.code !== "Space") return;
+        imageMaskEditorState.spacePressed = false;
+        canvas.classList.remove("pan-ready");
+    });
+    modal.addEventListener("mousedown", function(event) {
+        if (event.target === modal) closeImageMaskEditor(true);
+    });
+}
+
+async function openImageMaskEditor(inputImage, editingExisting = false) {
+    try {
+        const [imageBase64, maskBase64] = await Promise.all([
+            pywebview.api.api_get_pending_input_image_base64(inputImage.input_image_id),
+            inputImage.has_mask
+                ? pywebview.api.api_get_pending_input_image_mask_base64(
+                    inputImage.input_image_id
+                )
+                : Promise.resolve("")
+        ]);
+        if (!imageBase64) {
+            if (!editingExisting) {
+                await pywebview.api.api_release_input_image(inputImage.input_image_id);
+            }
+            alert("編集元の画像を読み込めませんでした。");
+            return;
+        }
+        if (inputImage.has_mask && !maskBase64) {
+            if (!editingExisting) {
+                await pywebview.api.api_release_input_image(inputImage.input_image_id);
+            }
+            alert("保存済みの編集範囲を読み込めませんでした。");
+            return;
+        }
+
+        imageMaskEditorState.inputImage = inputImage;
+        imageMaskEditorState.editingExisting = editingExisting;
+        imageMaskEditorState.initialMaskBase64 = maskBase64;
+        imageMaskEditorState.hasSelection = false;
+        setImageMaskSaving(false);
+        document.getElementById("image-mask-modal").style.display = "flex";
+        document.getElementById("image-mask-source").src =
+            `data:${inputImage.mime_type};base64,${imageBase64}`;
+    }
+    catch (error) {
+        if (!editingExisting) {
+            await pywebview.api.api_release_input_image(inputImage.input_image_id);
+        }
+        alert(error.message || String(error));
+    }
+}
+
+function resetImageMaskEditor() {
+    const viewport = document.getElementById("image-mask-viewport");
+    const stage = document.getElementById("image-mask-stage");
+    const sourceImage = document.getElementById("image-mask-source");
+    const canvas = document.getElementById("image-mask-canvas");
+    const viewportWidth = viewport.clientWidth;
+    const viewportHeight = viewport.clientHeight;
+    const fitScale = Math.min(
+        (viewportWidth - 24) / sourceImage.naturalWidth,
+        (viewportHeight - 24) / sourceImage.naturalHeight,
+        1
+    );
+
+    imageMaskEditorState.displayWidth = sourceImage.naturalWidth * fitScale;
+    imageMaskEditorState.displayHeight = sourceImage.naturalHeight * fitScale;
+    imageMaskEditorState.scale = 1;
+    imageMaskEditorState.x = 0;
+    imageMaskEditorState.y = 0;
+    imageMaskEditorState.pointerMode = "";
+    imageMaskEditorState.pointerId = null;
+    imageMaskEditorState.hasSelection = false;
+
+    stage.style.width = `${imageMaskEditorState.displayWidth}px`;
+    stage.style.height = `${imageMaskEditorState.displayHeight}px`;
+    stage.style.left = `${(viewportWidth - imageMaskEditorState.displayWidth) / 2}px`;
+    stage.style.top = `${(viewportHeight - imageMaskEditorState.displayHeight) / 2}px`;
+    canvas.width = sourceImage.naturalWidth;
+    canvas.height = sourceImage.naturalHeight;
+    clearImageMaskSelection();
+    updateImageMaskTransform();
+    restoreImageMaskSelection(imageMaskEditorState.maskRestoreToken);
+}
+
+function restoreImageMaskSelection(restoreToken) {
+    const maskBase64 = imageMaskEditorState.initialMaskBase64;
+    const inputImageId = imageMaskEditorState.inputImage?.input_image_id;
+    if (!maskBase64 || !inputImageId) return;
+
+    const maskImage = new Image();
+    maskImage.addEventListener("load", function() {
+        if (
+            restoreToken !== imageMaskEditorState.maskRestoreToken
+            || imageMaskEditorState.inputImage?.input_image_id !== inputImageId
+        ) {
+            return;
+        }
+
+        const canvas = document.getElementById("image-mask-canvas");
+        const restoredCanvas = document.createElement("canvas");
+        restoredCanvas.width = canvas.width;
+        restoredCanvas.height = canvas.height;
+        const restoredContext = restoredCanvas.getContext("2d");
+        restoredContext.fillStyle = "#ff2d2d";
+        restoredContext.fillRect(0, 0, restoredCanvas.width, restoredCanvas.height);
+        restoredContext.globalCompositeOperation = "destination-out";
+        restoredContext.drawImage(
+            maskImage,
+            0,
+            0,
+            restoredCanvas.width,
+            restoredCanvas.height
+        );
+        canvas.getContext("2d").drawImage(restoredCanvas, 0, 0);
+        setImageMaskSelectionState(true);
+    });
+    maskImage.addEventListener("error", function() {
+        alert("保存済みの編集範囲を表示できませんでした。");
+    });
+    maskImage.src = `data:image/png;base64,${maskBase64}`;
+}
+
+function updateImageMaskTransform() {
+    const stage = document.getElementById("image-mask-stage");
+    stage.style.transform =
+        `translate(${imageMaskEditorState.x}px, ${imageMaskEditorState.y}px) ` +
+        `scale(${imageMaskEditorState.scale})`;
+}
+
+function clampImageMaskPosition() {
+    const viewport = document.getElementById("image-mask-viewport");
+    const scaledWidth = imageMaskEditorState.displayWidth * imageMaskEditorState.scale;
+    const scaledHeight = imageMaskEditorState.displayHeight * imageMaskEditorState.scale;
+    const maxX = Math.max(0, (scaledWidth - viewport.clientWidth) / 2);
+    const maxY = Math.max(0, (scaledHeight - viewport.clientHeight) / 2);
+    imageMaskEditorState.x = Math.min(maxX, Math.max(-maxX, imageMaskEditorState.x));
+    imageMaskEditorState.y = Math.min(maxY, Math.max(-maxY, imageMaskEditorState.y));
+}
+
+function imageMaskCanvasPoint(event) {
+    const canvas = document.getElementById("image-mask-canvas");
+    const rect = canvas.getBoundingClientRect();
+    return {
+        x: Math.min(canvas.width, Math.max(0, (event.clientX - rect.left) * canvas.width / rect.width)),
+        y: Math.min(canvas.height, Math.max(0, (event.clientY - rect.top) * canvas.height / rect.height))
+    };
+}
+
+function handleImageMaskPointerDown(event) {
+    if (event.button !== 0 || imageMaskEditorState.saving) return;
+    event.preventDefault();
+    const canvas = event.currentTarget;
+    canvas.setPointerCapture(event.pointerId);
+    imageMaskEditorState.pointerId = event.pointerId;
+
+    if (imageMaskEditorState.spacePressed) {
+        imageMaskEditorState.pointerMode = "pan";
+        imageMaskEditorState.panStartX = event.clientX;
+        imageMaskEditorState.panStartY = event.clientY;
+        imageMaskEditorState.startX = imageMaskEditorState.x;
+        imageMaskEditorState.startY = imageMaskEditorState.y;
+        canvas.classList.add("panning");
+        return;
+    }
+
+    imageMaskEditorState.pointerMode = "draw";
+    const point = imageMaskCanvasPoint(event);
+    imageMaskEditorState.lastPoint = point;
+    const context = canvas.getContext("2d");
+    const brushSize = Number(document.getElementById("image-mask-brush-size").value);
+    context.fillStyle = "#ff2d2d";
+    context.beginPath();
+    context.arc(point.x, point.y, brushSize / 2, 0, Math.PI * 2);
+    context.fill();
+    setImageMaskSelectionState(true);
+    updateImageMaskBrushCursor(event);
+}
+
+function handleImageMaskPointerMove(event) {
+    updateImageMaskBrushCursor(event);
+    if (event.pointerId !== imageMaskEditorState.pointerId) return;
+
+    if (imageMaskEditorState.pointerMode === "pan") {
+        imageMaskEditorState.x = imageMaskEditorState.startX + event.clientX - imageMaskEditorState.panStartX;
+        imageMaskEditorState.y = imageMaskEditorState.startY + event.clientY - imageMaskEditorState.panStartY;
+        clampImageMaskPosition();
+        updateImageMaskTransform();
+        return;
+    }
+    if (imageMaskEditorState.pointerMode !== "draw") return;
+
+    const canvas = document.getElementById("image-mask-canvas");
+    const point = imageMaskCanvasPoint(event);
+    const context = canvas.getContext("2d");
+    context.strokeStyle = "#ff2d2d";
+    context.lineWidth = Number(document.getElementById("image-mask-brush-size").value);
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.beginPath();
+    context.moveTo(imageMaskEditorState.lastPoint.x, imageMaskEditorState.lastPoint.y);
+    context.lineTo(point.x, point.y);
+    context.stroke();
+    imageMaskEditorState.lastPoint = point;
+}
+
+function finishImageMaskPointer(event) {
+    if (event.pointerId !== imageMaskEditorState.pointerId) return;
+    const canvas = document.getElementById("image-mask-canvas");
+    if (canvas.hasPointerCapture(event.pointerId)) {
+        canvas.releasePointerCapture(event.pointerId);
+    }
+    canvas.classList.remove("panning");
+    imageMaskEditorState.pointerMode = "";
+    imageMaskEditorState.pointerId = null;
+    imageMaskEditorState.lastPoint = null;
+    updateImageMaskBrushCursor(event);
+}
+
+function updateImageMaskBrushCursor(event) {
+    const cursor = document.getElementById("image-mask-brush-cursor");
+    const canvas = document.getElementById("image-mask-canvas");
+    if (imageMaskEditorState.spacePressed || imageMaskEditorState.pointerMode === "pan") {
+        cursor.hidden = true;
+        return;
+    }
+
+    const canvasRect = canvas.getBoundingClientRect();
+    const viewportRect = document.getElementById("image-mask-viewport").getBoundingClientRect();
+    const withinCanvas = event.clientX >= canvasRect.left && event.clientX <= canvasRect.right
+        && event.clientY >= canvasRect.top && event.clientY <= canvasRect.bottom;
+    if (!withinCanvas || canvas.width === 0) {
+        cursor.hidden = true;
+        return;
+    }
+
+    const brushSize = Number(document.getElementById("image-mask-brush-size").value);
+    const diameter = brushSize * canvasRect.width / canvas.width;
+    cursor.style.width = `${diameter}px`;
+    cursor.style.height = `${diameter}px`;
+    cursor.style.left = `${event.clientX - viewportRect.left}px`;
+    cursor.style.top = `${event.clientY - viewportRect.top}px`;
+    cursor.hidden = false;
+}
+
+function setImageMaskSelectionState(hasSelection) {
+    imageMaskEditorState.hasSelection = hasSelection;
+    document.getElementById("image-mask-clear-button").disabled =
+        !hasSelection || imageMaskEditorState.saving;
+    document.getElementById("image-mask-apply-button").disabled =
+        !hasSelection || imageMaskEditorState.saving;
+}
+
+function setImageMaskSaving(saving) {
+    imageMaskEditorState.saving = saving;
+    document.getElementById("image-mask-close-button").disabled = saving;
+    document.getElementById("image-mask-cancel-button").disabled = saving;
+    document.getElementById("image-mask-brush-size").disabled = saving;
+    setImageMaskSelectionState(imageMaskEditorState.hasSelection);
+}
+
+function clearImageMaskSelection() {
+    if (imageMaskEditorState.saving) return;
+    imageMaskEditorState.maskRestoreToken += 1;
+    const canvas = document.getElementById("image-mask-canvas");
+    canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+    setImageMaskSelectionState(false);
+}
+
+async function applyImageMaskSelection() {
+    if (!imageMaskEditorState.inputImage || !imageMaskEditorState.hasSelection) return;
+    const inputImage = imageMaskEditorState.inputImage;
+    setImageMaskSaving(true);
+
+    try {
+        const selectionCanvas = document.getElementById("image-mask-canvas");
+        const maskCanvas = document.createElement("canvas");
+        maskCanvas.width = selectionCanvas.width;
+        maskCanvas.height = selectionCanvas.height;
+        const context = maskCanvas.getContext("2d");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+        context.globalCompositeOperation = "destination-out";
+        context.drawImage(selectionCanvas, 0, 0);
+
+        const result = await pywebview.api.api_set_input_image_mask(
+            inputImage.input_image_id,
+            maskCanvas.toDataURL("image/png")
+        );
+        if (!result.success) {
+            alert(result.error_info || "編集範囲を保存できませんでした。");
+            setImageMaskSaving(false);
+            return;
+        }
+
+        const previousImages = pendingInputImages;
+        const editingExisting = imageMaskEditorState.editingExisting;
+        inputImage.has_mask = true;
+        pendingInputImages = editingExisting
+            ? pendingInputImages.map(image =>
+                image.input_image_id === inputImage.input_image_id ? inputImage : image
+            )
+            : [inputImage];
+        renderInputImagePreviews();
+        await closeImageMaskEditor(false);
+        if (!editingExisting) {
+            for (const image of previousImages) {
+                await pywebview.api.api_release_input_image(image.input_image_id);
+            }
+        }
+        document.getElementById("prompt").focus();
+    }
+    catch (error) {
+        alert(error.message || String(error));
+        setImageMaskSaving(false);
+    }
+}
+
+async function closeImageMaskEditor(releasePendingImage) {
+    if (releasePendingImage && imageMaskEditorState.saving) return;
+    const inputImage = imageMaskEditorState.inputImage;
+    const shouldRelease = releasePendingImage && !imageMaskEditorState.editingExisting;
+    imageMaskEditorState.inputImage = null;
+    imageMaskEditorState.editingExisting = false;
+    imageMaskEditorState.initialMaskBase64 = "";
+    imageMaskEditorState.maskRestoreToken += 1;
+    imageMaskEditorState.pointerMode = "";
+    imageMaskEditorState.pointerId = null;
+    imageMaskEditorState.spacePressed = false;
+    imageMaskEditorState.saving = false;
+    document.getElementById("image-mask-modal").style.display = "none";
+    document.getElementById("image-mask-source").removeAttribute("src");
+    document.getElementById("image-mask-brush-cursor").hidden = true;
+    document.getElementById("image-mask-canvas").classList.remove("pan-ready", "panning");
+    if (shouldRelease && inputImage) {
+        await pywebview.api.api_release_input_image(inputImage.input_image_id);
+    }
 }
 
 // 画像情報モーダル初期化
@@ -628,14 +1092,15 @@ function renderInputImagePreviews() {
         const preview = document.createElement("img");
         preview.src = "data:image/png;base64," + image.preview_base64;
         preview.alt = `入力画像${index + 1}`;
-        preview.title = image.resize_message
-            ? image.filename + "\n" + image.resize_message
-            : image.filename;
+        const previewDetails = [];
+        if (image.resize_message) previewDetails.push(image.resize_message);
+        if (image.has_mask) previewDetails.push("クリックして編集範囲を再編集");
+        preview.title = [image.filename, ...previewDetails].filter(Boolean).join("\n");
         preview.addEventListener("click", () => showPendingInputImage(index));
 
         const badge = document.createElement("span");
         badge.className = "input-image-preview-badge";
-        badge.textContent = String(index + 1);
+        badge.textContent = image.has_mask ? `${index + 1} 範囲` : String(index + 1);
 
         const removeButton = document.createElement("button");
         removeButton.type = "button";
@@ -675,6 +1140,10 @@ async function clearInputImages(releaseOnBackend) {
 async function showPendingInputImage(index) {
     const image = pendingInputImages[index];
     if (!image) return;
+    if (image.has_mask) {
+        await openImageMaskEditor(image, true);
+        return;
+    }
     const imageBase64 = await pywebview.api.api_get_pending_input_image_base64(
         image.input_image_id
     );
@@ -744,6 +1213,7 @@ function handleContextMenu(event) {
     menuContent += `<button id="saveas"><i class="fa-regular fa-floppy-disk"></i>　名前を付けて保存</button><br>`;
     menuContent += `<button id="rename-image"><i class="fa-regular fa-file"></i>　${imageName ? "画像名を変更" : "画像名を設定"}</button><br>`;
     menuContent += `<button id="edit-from-image"><i class="fa-regular fa-pen-to-square"></i>　この画像を元に編集</button><br>`;
+    menuContent += `<button id="masked-edit-from-image"><i class="fa-solid fa-paintbrush"></i>　範囲を指定して編集</button><br>`;
     if (!inModal) {
         menuContent += `<button id="regenerate"><i class="fa-solid fa-repeat"></i>　同じプロンプトで再作成</button><br>`;
         menuContent += `<button id="image-info"><i class="fa-solid fa-circle-info"></i>　画像情報を表示</button><br>`;
@@ -814,6 +1284,17 @@ function handleContextMenu(event) {
         });
     }
 
+    // 生成画像にブラシで編集範囲を指定する
+    const maskedEditFromImageButton = document.getElementById("masked-edit-from-image");
+    if (maskedEditFromImageButton) {
+        maskedEditFromImageButton.addEventListener("click", function() {
+            document.body.removeChild(menu);
+            setTimeout(function() {
+                prepareMaskedImageEdit(parseInt(target.dataset.entryId));
+            }, 100);
+        });
+    }
+
     // 同じプロンプトで再作成
     const regenerateButton = document.getElementById("regenerate");
     if (regenerateButton) {
@@ -879,6 +1360,24 @@ async function prepareImageEdit(entryId) {
 
     const prompt = document.getElementById("prompt");
     prompt.focus();
+}
+
+// 生成済み画像を読み込み、編集範囲指定モーダルを開く
+async function prepareMaskedImageEdit(entryId) {
+    const existingInput = pendingInputImages.find(
+        image => image.source_entry_id === entryId
+    );
+    if (existingInput) {
+        await openImageMaskEditor(existingInput, true);
+        return;
+    }
+
+    const result = await pywebview.api.api_prepare_image_edit(entryId);
+    if (!result.success) {
+        alert(result.error_info || "編集元の画像を読み込めませんでした。");
+        return;
+    }
+    await openImageMaskEditor(result);
 }
 
 // GPT Imageで画像を生成する
@@ -963,7 +1462,9 @@ function addCard(id, prompt, inputImages = []) {
 
             const badge = document.createElement("span");
             badge.className = "input-reference-badge";
-            badge.textContent = `入力${imageIndex + 1}`;
+            badge.textContent = inputImage.has_mask
+                ? `入力${imageIndex + 1}・範囲`
+                : `入力${imageIndex + 1}`;
 
             const image = document.createElement("img");
             image.className = "input-reference-image";

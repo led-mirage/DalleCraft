@@ -108,6 +108,7 @@ class GPTImageClientTest(unittest.TestCase):
         self.assertEqual("edit this image", call.kwargs["prompt"])
         self.assertEqual("1024x1024", call.kwargs["size"])
         self.assertEqual("high", call.kwargs["quality"])
+        self.assertEqual("opaque", call.kwargs["background"])
         self.assertEqual("png", call.kwargs["output_format"])
         self.assertEqual(1, call.kwargs["n"])
         self.assertEqual(str(input_path), call.kwargs["image"].name)
@@ -140,6 +141,32 @@ class GPTImageClientTest(unittest.TestCase):
         self.assertEqual("ZWRpdGVk", image_b64)
         self.assertEqual("", revised_prompt)
         self.assertEqual({}, token_usage)
+
+    @patch("dalle.OpenAI")
+    def test_edits_png_with_mask(self, openai_class):
+        image = SimpleNamespace(b64_json="ZWRpdGVk", revised_prompt=None)
+        openai_class.return_value.images.edit.return_value = SimpleNamespace(data=[image])
+
+        client = GPTImageClient(api_key="test-key", model="gpt-image-2.5-sunburst")
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.png"
+            mask_path = Path(directory) / "mask.png"
+            input_path.write_bytes(b"input image")
+            mask_path.write_bytes(b"mask image")
+            client.edit_image(
+                "edit the selected area",
+                str(input_path),
+                mask_path=str(mask_path),
+            )
+
+        call = openai_class.return_value.images.edit.call_args
+        self.assertEqual(str(input_path), call.kwargs["image"].name)
+        self.assertEqual(str(mask_path), call.kwargs["mask"].name)
+        self.assertTrue(call.kwargs["mask"].closed)
+        self.assertIn("edit the selected area", call.kwargs["prompt"])
+        self.assertIn("fully transparent area", call.kwargs["prompt"])
+        self.assertIn("black or blank patch", call.kwargs["prompt"])
+        self.assertNotIn("markup", call.kwargs)
 
 
 if __name__ == "__main__":

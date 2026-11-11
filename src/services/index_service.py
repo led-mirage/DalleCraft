@@ -34,6 +34,7 @@ INPUT_IMAGE_DIR = os.path.join(LOG_DIR, "input-images")
 class IndexService:
     MAX_INPUT_IMAGES = 2
     MAX_INPUT_IMAGE_BYTES = 20 * 1024 * 1024
+    MAX_EDIT_MASK_BYTES = 4 * 1024 * 1024
     MAX_INPUT_IMAGE_EDGE = 2048
     MAX_IMAGE_NAME_LENGTH = 100
     INVALID_IMAGE_NAME_CHARACTERS = set('<>:"/\\|?*')
@@ -87,6 +88,7 @@ class IndexService:
         size: str | None = None,
         quality: str | None = None,
         input_image_paths: list[str] | None = None,
+        mask_path: str | None = None,
     ) -> tuple[str, str, float, dict]:
         start_time = time.time()
         image_client = self.create_image_client()
@@ -100,6 +102,7 @@ class IndexService:
                 input_image_paths,
                 size=size,
                 quality=quality,
+                mask_path=mask_path,
             )
         else:
             image_b64, revised_prompt, token_usage = image_client.gen_image(
@@ -282,13 +285,82 @@ class IndexService:
             )
         return result
 
+    def register_edit_mask(self, input_image_id: str, mask_base64: str) -> dict:
+        pending_image = self._pending_input_images.get(input_image_id)
+        if pending_image is None or not os.path.exists(pending_image["path"]):
+            raise ValueError("編集元の画像が見つかりません。もう一度選択してください。")
+        if not isinstance(mask_base64, str) or not mask_base64:
+            raise ValueError("編集範囲のデータがありません。")
+        if mask_base64.startswith("data:"):
+            try:
+                mask_base64 = mask_base64.split(",", 1)[1]
+            except IndexError as e:
+                raise ValueError("編集範囲のデータが正しくありません。") from e
+
+        try:
+            mask_bytes = base64.b64decode(mask_base64, validate=True)
+        except (binascii.Error, ValueError) as e:
+            raise ValueError("編集範囲を読み込めませんでした。") from e
+        if len(mask_bytes) >= self.MAX_EDIT_MASK_BYTES:
+            raise ValueError("編集範囲のマスクは4MB未満にしてください。")
+
+        try:
+            with Image.open(io.BytesIO(mask_bytes)) as mask:
+                mask.load()
+                if mask.format != "PNG":
+                    raise ValueError("編集範囲のマスクはPNG形式にしてください。")
+                if mask.size != (pending_image["width"], pending_image["height"]):
+                    raise ValueError("編集範囲のマスクと元画像のサイズが一致しません。")
+                if "A" not in mask.getbands() or mask.getchannel("A").getextrema()[0] != 0:
+                    raise ValueError("編集範囲が指定されていません。")
+
+                # Canvasで透明化した画素はRGBが黒になることがある。
+                # APIはアルファ値で編集範囲を判定するが、透明画素のRGBも白に
+                # 統一して、黒い塗りつぶしとして解釈される余地をなくす。
+                normalized_mask = Image.new("RGBA", mask.size, (255, 255, 255, 255))
+                normalized_mask.putalpha(mask.getchannel("A"))
+                mask_output = io.BytesIO()
+                normalized_mask.save(mask_output, format="PNG", optimize=True)
+                mask_bytes = mask_output.getvalue()
+
+        except (Image.DecompressionBombError, UnidentifiedImageError, OSError) as e:
+            raise ValueError("編集範囲のマスクはPNG形式にしてください。") from e
+
+        if len(mask_bytes) >= self.MAX_EDIT_MASK_BYTES:
+            raise ValueError("編集範囲のマスクは4MB未満にしてください。")
+
+        mask_path = os.path.join(
+            self._input_image_temp_dir.name,
+            f"{input_image_id}_mask.png",
+        )
+        previous_mask_path = pending_image.get("mask_path", "")
+        if (
+            previous_mask_path
+            and previous_mask_path != mask_path
+            and os.path.exists(previous_mask_path)
+        ):
+            os.remove(previous_mask_path)
+        with open(mask_path, "wb") as mask_file:
+            mask_file.write(mask_bytes)
+        pending_image["mask_path"] = mask_path
+
+        return {
+            "success": True,
+            "input_image_id": input_image_id,
+            "has_mask": True,
+            "mask_size_bytes": len(mask_bytes),
+        }
+
     def release_input_image(self, input_image_id: str) -> bool:
         pending_image = self._pending_input_images.pop(input_image_id, None)
         if pending_image is None:
             return False
-        image_path = pending_image["path"]
-        if os.path.exists(image_path):
-            os.remove(image_path)
+        for image_path in (
+            pending_image["path"],
+            pending_image.get("mask_path", ""),
+        ):
+            if image_path and os.path.exists(image_path):
+                os.remove(image_path)
         return True
 
     def resolve_input_images(self, options: dict | None) -> list[dict]:
@@ -344,6 +416,12 @@ class IndexService:
         with open(thumbnail_path, "wb") as thumbnail_file:
             thumbnail_file.write(thumbnail_data)
 
+        mask_filename = ""
+        mask_path = pending_image.get("mask_path", "")
+        if mask_path:
+            mask_filename = f"input_mask_{uuid.uuid4().hex}.png"
+            shutil.copy2(mask_path, os.path.join(INPUT_IMAGE_DIR, mask_filename))
+
         return {
             "filename": input_filename,
             "thumbnail_filename": thumbnail_filename,
@@ -357,6 +435,8 @@ class IndexService:
             "original_size_bytes": pending_image["original_size_bytes"],
             "size_bytes": pending_image["size_bytes"],
             "resized": pending_image["resized"],
+            "mask_filename": mask_filename,
+            "has_mask": bool(mask_filename),
         }
 
     def get_stored_input_image_path(self, filename: str) -> str:
@@ -397,9 +477,11 @@ class IndexService:
             for filename in (
                 input_image.get("filename", ""),
                 input_image.get("thumbnail_filename", ""),
+                input_image.get("mask_filename", ""),
             ):
-                self.remove_managed_file(filename, INPUT_IMAGE_DIR)
-                self.remove_managed_file(filename, IMAGE_DIR)
+                if filename:
+                    self.remove_managed_file(filename, INPUT_IMAGE_DIR)
+                    self.remove_managed_file(filename, IMAGE_DIR)
 
     def create_image_client(self) -> GPTImageClient:
         model_name = self.config.get_model_name()
@@ -492,6 +574,12 @@ class IndexService:
         except Exception as e:
             return {"success": False, "error_info": str(e)}
 
+    def api_set_input_image_mask(self, input_image_id: str, mask_base64: str) -> dict:
+        try:
+            return self.register_edit_mask(input_image_id, mask_base64)
+        except Exception as e:
+            return {"success": False, "error_info": str(e)}
+
     def api_prepare_image_edit(self, entry_id: int) -> dict:
         try:
             session = self.session_manager.get_current_session()
@@ -518,12 +606,17 @@ class IndexService:
             with open(image_path, "rb") as image_file:
                 image_base64 = base64.b64encode(image_file.read()).decode("ascii")
 
-            return self.register_input_image({
+            result = self.register_input_image({
                 "filename": image_filename,
                 "source": "generated",
                 "mime_type": "image/png",
                 "image_base64": image_base64,
             })
+            result["source_entry_id"] = entry_id
+            self._pending_input_images[result["input_image_id"]][
+                "source_entry_id"
+            ] = entry_id
+            return result
         except Exception as e:
             return {"success": False, "error_info": str(e)}
 
@@ -539,6 +632,16 @@ class IndexService:
             return ""
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode("utf-8")
+
+    def api_get_pending_input_image_mask_base64(self, input_image_id: str) -> str:
+        pending_image = self._pending_input_images.get(input_image_id)
+        if pending_image is None:
+            return ""
+        mask_path = pending_image.get("mask_path", "")
+        if not mask_path or not os.path.exists(mask_path):
+            return ""
+        with open(mask_path, "rb") as mask_file:
+            return base64.b64encode(mask_file.read()).decode("utf-8")
 
     def api_gen_image(self, prompt: str, options: dict | None = None) -> dict:
         api_type = self.config.api_type
@@ -558,6 +661,10 @@ class IndexService:
                     pending_input_image["path"]
                     for pending_input_image in pending_input_images
                 ] or None,
+                mask_path=(
+                    pending_input_images[0].get("mask_path")
+                    if pending_input_images else None
+                ),
             )
             cost_estimate = self.pricing.estimate(
                 api_type,
@@ -616,6 +723,8 @@ class IndexService:
                         "original_size_bytes": pending_input_image["original_size_bytes"],
                         "size_bytes": pending_input_image["size_bytes"],
                         "resized": pending_input_image["resized"],
+                        "mask_filename": "",
+                        "has_mask": bool(pending_input_image.get("mask_path")),
                     })
             entry = SessionEntry(
                 prompt,
@@ -660,7 +769,7 @@ class IndexService:
             if len(entry.input_images) > self.MAX_INPUT_IMAGES:
                 return {"error_info": f"入力画像は最大{self.MAX_INPUT_IMAGES}枚までです。"}
 
-            for input_image in entry.input_images:
+            for image_index, input_image in enumerate(entry.input_images):
                 input_filename = input_image.get("filename", "")
                 input_path = self.get_stored_input_image_path(input_filename)
                 if not input_filename or not os.path.exists(input_path):
@@ -675,6 +784,15 @@ class IndexService:
                     "image_base64": image_base64,
                 })
                 regenerated_input_ids.append(registered["input_image_id"])
+
+                mask_filename = input_image.get("mask_filename", "")
+                if image_index == 0 and mask_filename:
+                    mask_path = self.get_stored_input_image_path(mask_filename)
+                    if not os.path.exists(mask_path):
+                        return {"error_info": "元の編集範囲マスクが見つかりません。"}
+                    with open(mask_path, "rb") as mask_file:
+                        mask_base64 = base64.b64encode(mask_file.read()).decode("ascii")
+                    self.register_edit_mask(registered["input_image_id"], mask_base64)
 
             if regenerated_input_ids:
                 regeneration_options["input_image_ids"] = regenerated_input_ids
