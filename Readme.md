@@ -59,6 +59,8 @@ OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとG
 
 - APIの利用料金が発生します。※本アプリ自体は無料です。
 
+<div class="page"/>
+
 ## 💎 事前準備
 
 ### APIキーの取得
