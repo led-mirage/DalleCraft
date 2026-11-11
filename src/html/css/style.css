@@ -781,6 +781,12 @@ pre {
     pointer-events: none;
 }
 
+.image-mask-brush-cursor.erasing {
+    border: 2px dashed #ff6b6b;
+    background-color: rgba(0, 0, 0, 0.18);
+    box-shadow: 0 0 0 1px #fff;
+}
+
 .image-mask-brush-cursor[hidden] {
     display: none;
 }

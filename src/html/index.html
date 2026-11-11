@@ -128,7 +128,7 @@
                 <input id="image-mask-brush-size" type="range" min="10" max="300" step="5" value="50">
                 <output id="image-mask-brush-size-value" for="image-mask-brush-size">50 px</output>
             </div>
-            <div class="image-mask-help">左ドラッグ: 範囲指定　ホイール: 拡大・縮小　Space+ドラッグ: 移動</div>
+            <div class="image-mask-help">左ドラッグ: 範囲指定　右ドラッグ: 範囲を消去　ホイール: 拡大・縮小　Space+ドラッグ: 移動</div>
             <div class="image-mask-editor-actions">
                 <button id="image-mask-clear-button" type="button" disabled>選択範囲をクリア</button>
                 <span></span>
@@ -588,7 +588,7 @@ function imageMaskCanvasPoint(event) {
 }
 
 function handleImageMaskPointerDown(event) {
-    if (event.button !== 0 || imageMaskEditorState.saving) return;
+    if ((event.button !== 0 && event.button !== 2) || imageMaskEditorState.saving) return;
     event.preventDefault();
     const canvas = event.currentTarget;
     canvas.setPointerCapture(event.pointerId);
@@ -604,16 +604,20 @@ function handleImageMaskPointerDown(event) {
         return;
     }
 
-    imageMaskEditorState.pointerMode = "draw";
+    const erasing = event.button === 2;
+    imageMaskEditorState.pointerMode = erasing ? "erase" : "draw";
     const point = imageMaskCanvasPoint(event);
     imageMaskEditorState.lastPoint = point;
     const context = canvas.getContext("2d");
     const brushSize = Number(document.getElementById("image-mask-brush-size").value);
+    context.save();
+    context.globalCompositeOperation = erasing ? "destination-out" : "source-over";
     context.fillStyle = "#ff2d2d";
     context.beginPath();
     context.arc(point.x, point.y, brushSize / 2, 0, Math.PI * 2);
     context.fill();
-    setImageMaskSelectionState(true);
+    context.restore();
+    if (!erasing) setImageMaskSelectionState(true);
     updateImageMaskBrushCursor(event);
 }
 
@@ -628,11 +632,17 @@ function handleImageMaskPointerMove(event) {
         updateImageMaskTransform();
         return;
     }
-    if (imageMaskEditorState.pointerMode !== "draw") return;
+    if (
+        imageMaskEditorState.pointerMode !== "draw"
+        && imageMaskEditorState.pointerMode !== "erase"
+    ) return;
 
     const canvas = document.getElementById("image-mask-canvas");
     const point = imageMaskCanvasPoint(event);
     const context = canvas.getContext("2d");
+    context.save();
+    context.globalCompositeOperation =
+        imageMaskEditorState.pointerMode === "erase" ? "destination-out" : "source-over";
     context.strokeStyle = "#ff2d2d";
     context.lineWidth = Number(document.getElementById("image-mask-brush-size").value);
     context.lineCap = "round";
@@ -641,12 +651,14 @@ function handleImageMaskPointerMove(event) {
     context.moveTo(imageMaskEditorState.lastPoint.x, imageMaskEditorState.lastPoint.y);
     context.lineTo(point.x, point.y);
     context.stroke();
+    context.restore();
     imageMaskEditorState.lastPoint = point;
 }
 
 function finishImageMaskPointer(event) {
     if (event.pointerId !== imageMaskEditorState.pointerId) return;
     const canvas = document.getElementById("image-mask-canvas");
+    const wasErasing = imageMaskEditorState.pointerMode === "erase";
     if (canvas.hasPointerCapture(event.pointerId)) {
         canvas.releasePointerCapture(event.pointerId);
     }
@@ -654,6 +666,9 @@ function finishImageMaskPointer(event) {
     imageMaskEditorState.pointerMode = "";
     imageMaskEditorState.pointerId = null;
     imageMaskEditorState.lastPoint = null;
+    if (wasErasing) {
+        setImageMaskSelectionState(imageMaskCanvasHasSelection(canvas));
+    }
     updateImageMaskBrushCursor(event);
 }
 
@@ -680,7 +695,21 @@ function updateImageMaskBrushCursor(event) {
     cursor.style.height = `${diameter}px`;
     cursor.style.left = `${event.clientX - viewportRect.left}px`;
     cursor.style.top = `${event.clientY - viewportRect.top}px`;
+    cursor.classList.toggle("erasing", imageMaskEditorState.pointerMode === "erase");
     cursor.hidden = false;
+}
+
+function imageMaskCanvasHasSelection(canvas) {
+    const pixels = canvas.getContext("2d").getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    ).data;
+    for (let index = 3; index < pixels.length; index += 4) {
+        if (pixels[index] === 255) return true;
+    }
+    return false;
 }
 
 function setImageMaskSelectionState(hasSelection) {
@@ -770,7 +799,9 @@ async function closeImageMaskEditor(releasePendingImage) {
     imageMaskEditorState.saving = false;
     document.getElementById("image-mask-modal").style.display = "none";
     document.getElementById("image-mask-source").removeAttribute("src");
-    document.getElementById("image-mask-brush-cursor").hidden = true;
+    const brushCursor = document.getElementById("image-mask-brush-cursor");
+    brushCursor.hidden = true;
+    brushCursor.classList.remove("erasing");
     document.getElementById("image-mask-canvas").classList.remove("pan-ready", "panning");
     if (shouldRelease && inputImage) {
         await pywebview.api.api_release_input_image(inputImage.input_image_id);
