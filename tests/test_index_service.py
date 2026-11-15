@@ -44,8 +44,8 @@ class IndexServiceTest(unittest.TestCase):
     def test_creates_foundry_client_with_selected_deployment(self, client_class):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")
         config.api_type = "foundry"
-        config.model["variant"] = "sunburst"
-        config.foundry["sunburst_deployment"] = "sunburst-production"
+        config.model["id"] = "gpt-image-2.6-sunburst"
+        config.foundry["deployments"]["gpt-image-2.6-sunburst"] = "sunburst-production"
         config.foundry["api_key_envvar"] = "TEST_FOUNDRY_KEY"
         config.foundry["endpoint_envvar"] = "TEST_FOUNDRY_ENDPOINT"
         service = self.create_service(config)
@@ -97,14 +97,17 @@ class IndexServiceTest(unittest.TestCase):
             "a test image",
             size="1536x1024",
             quality="high",
+            complexity="high",
             input_image_paths=None,
             mask_path=None,
         )
         config_save.assert_called_once_with("config.json")
         self.assertEqual("1536x1024", config.model["size"])
         self.assertEqual("high", config.model["quality"])
+        self.assertEqual("high", config.model["complexity"])
         self.assertEqual("1536x1024", result["image_size"])
         self.assertEqual("high", result["image_quality"])
+        self.assertEqual("high", result["image_complexity"])
         self.assertEqual(token_usage, result["token_usage"])
         self.assertEqual("USD", result["cost_estimate"]["currency"])
         self.assertAlmostEqual(0.03005, result["cost_estimate"]["amount"])
@@ -131,12 +134,14 @@ class IndexServiceTest(unittest.TestCase):
         service = self.create_service(config)
 
         result = service.api_update_generation_options(
-            {"size": "1024x1536", "quality": "max"}
+            {"size": "1024x1536", "quality": "max", "complexity": "low"}
         )
 
         self.assertTrue(result["success"])
         self.assertEqual("1024x1536", config.model["size"])
         self.assertEqual("max", config.model["quality"])
+        self.assertEqual("high", config.model["complexity"])
+        self.assertNotIn("complexity", result)
         config_save.assert_called_once_with("config.json")
 
     def test_accepts_valid_custom_image_size(self):
@@ -144,7 +149,7 @@ class IndexServiceTest(unittest.TestCase):
         service = self.create_service(config)
 
         self.assertEqual(
-            ("1536x864", "auto"),
+            ("1536x864", "auto", "high"),
             service.resolve_generation_options(
                 {"size": "1536 × 864", "quality": "auto"}
             ),
@@ -419,6 +424,7 @@ class IndexServiceTest(unittest.TestCase):
             "edit this image",
             size=config.model["size"],
             quality=config.model["quality"],
+            complexity=config.model["complexity"],
             input_image_paths=[pending_path],
             mask_path=None,
         )
@@ -471,6 +477,7 @@ class IndexServiceTest(unittest.TestCase):
             "change only the selected area",
             size=config.model["size"],
             quality=config.model["quality"],
+            complexity=config.model["complexity"],
             input_image_paths=[pending["path"]],
             mask_path=pending["mask_path"],
         )
@@ -520,6 +527,7 @@ class IndexServiceTest(unittest.TestCase):
             "edit the first image using the second image",
             size=config.model["size"],
             quality=config.model["quality"],
+            complexity=config.model["complexity"],
             input_image_paths=pending_paths,
             mask_path=None,
         )

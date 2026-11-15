@@ -37,6 +37,16 @@ class SessionEntryTest(unittest.TestCase):
         self.assertIsNone(entry.cost_estimate)
         self.assertFalse(entry.favorite)
         self.assertEqual("", entry.image_name)
+        self.assertEqual("", entry.image_complexity)
+
+    def test_round_trips_image_complexity(self):
+        data = self.create_entry_data()
+        data["image_complexity"] = "medium"
+
+        entry = SessionEntry.from_dict(data)
+
+        self.assertEqual("medium", entry.image_complexity)
+        self.assertEqual("medium", entry.to_dict()["image_complexity"])
 
     def test_round_trips_favorite(self):
         data = self.create_entry_data()

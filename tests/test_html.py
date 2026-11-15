@@ -34,6 +34,22 @@ class ConfigHtmlTest(unittest.TestCase):
         self.assertIn("populateImageSizeRadios(", source)
         self.assertIn("config.model.size_presets", source)
 
+    def test_lists_gpt_image_2_5_and_2_6_models(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "config.html"
+        ).read_text(encoding="utf-8")
+
+        for model_id in (
+            "gpt-image-2.6-flare",
+            "gpt-image-2.6-sunburst",
+            "gpt-image-2.5-flare",
+            "gpt-image-2.5-sunburst",
+        ):
+            self.assertIn(f'value="{model_id}"', source)
+        self.assertIn('name="imageComplexity"', source)
+        self.assertIn("生成前の計画量", source)
+        self.assertIn("config.foundry.deployments", source)
+
 class IndexHtmlTest(unittest.TestCase):
     def test_quick_setting_elements_exist(self):
         source = (
@@ -44,6 +60,8 @@ class IndexHtmlTest(unittest.TestCase):
 
         self.assertIn("quick-image-size", parser.ids)
         self.assertIn("quick-image-quality", parser.ids)
+        self.assertNotIn("quick-image-complexity", parser.ids)
+        self.assertIn("image-info-complexity", parser.ids)
         self.assertIn("current-api-type", parser.ids)
         self.assertIn("session-cost-estimate", parser.ids)
         self.assertIn("prompt-input-container", parser.ids)
@@ -105,6 +123,30 @@ class IndexHtmlTest(unittest.TestCase):
         self.assertIn('id="copy-image"', source)
         self.assertIn("pywebview.api.api_copy_image(cardId)", source)
         self.assertIn("画像をクリップボードにコピーしました", source)
+
+    def test_groups_image_context_menu_commands(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+        menu_source = source[
+            source.index('menuContent += `<button id="copy-image"'):
+            source.index('const menu = document.createElement("div")')
+        ]
+
+        command_ids = (
+            "copy-image",
+            "saveas",
+            "rename-image",
+            "edit-from-image",
+            "masked-edit-from-image",
+            "regenerate",
+            "delete-card",
+            "image-info",
+        )
+        command_positions = [menu_source.index(f'id="{command_id}"') for command_id in command_ids]
+
+        self.assertEqual(command_positions, sorted(command_positions))
+        self.assertEqual(menu_source.count('class="contextmenu-separator"'), 2)
 
     def test_supports_zooming_modal_images(self):
         source = (

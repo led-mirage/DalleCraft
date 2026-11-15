@@ -422,6 +422,11 @@ pre {
 .contextmenu button:hover {
     background-color: #cee
 }
+.contextmenu-separator {
+    border: none;
+    border-top: 1px solid #ccc;
+    margin: 4px 8px;
+}
 
 /* トースト */
 .toast {

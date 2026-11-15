@@ -18,6 +18,14 @@ class GPTImageClientTest(unittest.TestCase):
     def test_model_name_matches_variant(self):
         self.assertEqual("gpt-image-2.5-flare", get_openai_model_name("flare"))
         self.assertEqual("gpt-image-2.5-sunburst", get_openai_model_name("sunburst"))
+        self.assertEqual(
+            "gpt-image-2.6-flare",
+            get_openai_model_name("flare", "2.6"),
+        )
+        self.assertEqual(
+            "gpt-image-2.6-sunburst",
+            get_openai_model_name("sunburst", "2.6"),
+        )
 
     def test_normalizes_foundry_resource_and_v1_endpoints(self):
         self.assertEqual(
@@ -59,6 +67,7 @@ class GPTImageClientTest(unittest.TestCase):
             "a test image",
             size="1536x1024",
             quality="max",
+            complexity="medium",
         )
 
         openai_class.assert_called_once_with(
@@ -70,6 +79,7 @@ class GPTImageClientTest(unittest.TestCase):
             prompt="a test image",
             size="1536x1024",
             quality="max",
+            complexity="medium",
             output_format="png",
             n=1,
         )
@@ -115,6 +125,24 @@ class GPTImageClientTest(unittest.TestCase):
         self.assertEqual("ZWRpdGVk", image_b64)
         self.assertEqual("revised", revised_prompt)
         self.assertEqual({}, token_usage)
+
+    @patch("dalle.OpenAI")
+    def test_edits_gpt_image_2_6_with_complexity(self, openai_class):
+        image = SimpleNamespace(b64_json="ZWRpdGVk", revised_prompt=None)
+        openai_class.return_value.images.edit.return_value = SimpleNamespace(data=[image])
+
+        client = GPTImageClient(api_key="test-key", model="gpt-image-2.6-flare")
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.png"
+            input_path.write_bytes(b"test image")
+            client.edit_image(
+                "edit this image",
+                str(input_path),
+                complexity="low",
+            )
+
+        call = openai_class.return_value.images.edit.call_args
+        self.assertEqual("low", call.kwargs["complexity"])
 
     @patch("dalle.OpenAI")
     def test_edits_png_with_two_input_images_in_order(self, openai_class):

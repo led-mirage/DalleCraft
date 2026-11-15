@@ -16,21 +16,24 @@ class ConfigTest(unittest.TestCase):
         path.write_text(json.dumps(data), encoding="utf-8")
         return path
 
-    def test_loads_v3_config_and_selects_provider_model(self):
+    def test_loads_v4_config_and_selects_provider_model(self):
         data = {
-            "version": "3.0",
+            "version": "4.0",
             "api_type": "foundry",
             "openai": {"api_key_envvar": "OPENAI_API_KEY"},
             "foundry": {
                 "api_key_envvar": "FOUNDRY_KEY",
                 "endpoint_envvar": "FOUNDRY_ENDPOINT",
-                "flare_deployment": "flare-production",
-                "sunburst_deployment": "sunburst-production",
+                "deployments": {
+                    "gpt-image-2.6-flare": "flare-production",
+                    "gpt-image-2.6-sunburst": "sunburst-production",
+                },
             },
             "model": {
-                "variant": "sunburst",
+                "id": "gpt-image-2.6-sunburst",
                 "size": "1536x1024",
                 "quality": "xhigh",
+                "complexity": "medium",
             },
             "system": {},
         }
@@ -41,13 +44,40 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual("foundry", config.api_type)
         self.assertEqual("sunburst-production", config.get_model_name())
         self.assertEqual(("1536x1024", "xhigh"), config.get_model_param())
+        self.assertEqual("medium", config.get_complexity())
         self.assertEqual(
             list(DEFAULT_IMAGE_SIZE_PRESETS),
             config.model["size_presets"],
         )
 
         config.api_type = "openai"
-        self.assertEqual("gpt-image-2.5-sunburst", config.get_model_name())
+        self.assertEqual("gpt-image-2.6-sunburst", config.get_model_name())
+
+    def test_migrates_v3_model_and_foundry_deployments_without_upgrading_model(self):
+        data = {
+            "version": "3.0",
+            "api_type": "foundry",
+            "foundry": {
+                "flare_deployment": "flare-production",
+                "sunburst_deployment": "sunburst-production",
+            },
+            "model": {
+                "variant": "sunburst",
+                "size": "auto",
+                "quality": "high",
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            config = Config(self.write_config(directory, data))
+
+        self.assertEqual("gpt-image-2.5-sunburst", config.model["id"])
+        self.assertEqual("sunburst-production", config.get_model_name())
+        self.assertEqual(
+            "flare-production",
+            config.foundry["deployments"]["gpt-image-2.5-flare"],
+        )
+        self.assertEqual("", config.foundry["deployments"]["gpt-image-2.6-flare"])
 
     def test_migrates_v2_azure_and_gpt_image_settings(self):
         data = {
@@ -81,14 +111,22 @@ class ConfigTest(unittest.TestCase):
             saved = json.loads(path.read_text(encoding="utf-8"))
 
         self.assertEqual("foundry", config.api_type)
-        self.assertEqual("flare", config.model["variant"])
+        self.assertEqual("gpt-image-2.5-flare", config.model["id"])
         self.assertEqual("1024x1536", config.model["size"])
         self.assertEqual("high", config.model["quality"])
         self.assertEqual(Config.DEFAULT_WELCOME_MESSAGE, config.system["welcome_message"])
-        self.assertEqual("3.0", saved["version"])
+        self.assertEqual("4.0", saved["version"])
         self.assertIn("foundry", saved)
         self.assertNotIn("azure", saved)
         self.assertNotIn("gptimage1", saved["model"])
+        self.assertIn("deployments", saved["foundry"])
+
+    def test_new_config_defaults_to_gpt_image_2_6_flare(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Config(self.write_config(directory, {}))
+
+        self.assertEqual("gpt-image-2.6-flare", config.model["id"])
+        self.assertEqual("high", config.model["complexity"])
 
     def test_loads_custom_size_presets_and_filters_invalid_values(self):
         data = {
