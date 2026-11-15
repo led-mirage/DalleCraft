@@ -12,7 +12,7 @@ LOG_DIR = "logs"
 
 
 class SessionEntry:
-    def __init__(self, prompt, revised_prompt, api_type, model_name, image_size, image_quality, success, elapsed_time, image_filename, thumbnail_filename, error_info=None, timestamp=None, input_images=None, token_usage=None, cost_estimate=None, favorite=False, image_name=""):
+    def __init__(self, prompt, revised_prompt, api_type, model_name, image_size, image_quality, success, elapsed_time, image_filename, thumbnail_filename, error_info=None, timestamp=None, input_images=None, token_usage=None, cost_estimate=None, favorite=False, image_name="", image_complexity=""):
         self.id = 0
         self.timestamp = datetime.now() if timestamp is None else timestamp
         self.prompt = prompt
@@ -21,6 +21,7 @@ class SessionEntry:
         self.model_name = model_name
         self.image_size = image_size
         self.image_quality = image_quality
+        self.image_complexity = image_complexity
         self.success = success
         self.elapsed_time = elapsed_time
         self.image_filename = image_filename
@@ -48,6 +49,7 @@ class SessionEntry:
             "model_name": self.model_name,
             "image_size": self.image_size,
             "image_quality": self.image_quality,
+            "image_complexity": self.image_complexity,
             "success": self.success,
             "elapsed_time": self.elapsed_time,
             "image_filename": self.image_filename,
@@ -71,6 +73,7 @@ class SessionEntry:
             model_name=data.get("model_name", ""),
             image_size=data.get("image_size", ""),
             image_quality=data.get("image_quality", ""),
+            image_complexity=data.get("image_complexity", ""),
             success=data["success"],
             elapsed_time=data.get("elapsed_time", 0.0),
             image_filename=data.get("image_filename", ""),

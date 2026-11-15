@@ -44,6 +44,7 @@ python -m unittest discover -s tests -p "test_dalle.py" -v
 
 ```powershell
 python -m unittest discover -s tests -p "test_config.py" -v
+python -m unittest discover -s tests -p "test_config_service.py" -v
 python -m unittest discover -s tests -p "test_generation_logger.py" -v
 python -m unittest discover -s tests -p "test_index_service.py" -v
 python -m unittest discover -s tests -p "test_html.py" -v
@@ -56,13 +57,22 @@ python -m unittest discover -s tests -p "test_session.py" -v
 
 設定ファイルの読み込み、モデル選択、旧設定からの移行を検証します。
 
-- バージョン3.0の設定を読み込み、Foundryのデプロイ名、画像サイズ、品質を正しく取得できること
-- OpenAIを選択した場合に、選択中のFlareまたはSunburstに対応するモデル名を取得できること
-- バージョン2.0のAzureおよびGPT Image 1設定を、バージョン3.0のFoundryおよびGPT Image 2.5設定へ移行できること
+- バージョン4.0の設定を読み込み、Foundryのデプロイ名、画像サイズ、品質、計画量を正しく取得できること
+- OpenAIを選択した場合に、選択中のGPT Image 2.5 / 2.6モデル名を取得できること
+- バージョン3.0のモデルとFoundryデプロイ設定を、GPT Image 2.5を維持したままバージョン4.0へ移行できること
+- バージョン2.0のAzureおよびGPT Image 1設定を、バージョン4.0のFoundryおよびGPT Image設定へ移行できること
 - 移行後の設定から古い`azure`および`gptimage1`項目が削除されること
 - 古いウェルカムメッセージが現在の既定値へ更新されること
 
 テスト用の設定ファイルは一時ディレクトリへ作成され、通常の`config.json`は変更しません。
+
+### `tests/test_config_service.py`
+
+設定画面から送信されたモデル、計画量、Foundryデプロイ名の保存と入力検証を確認します。
+
+- 選択中モデルに対応するFoundryデプロイ名を保存できること
+- 選択中のFoundryデプロイ名が空の場合に設定を拒否すること
+- 入力エラー時に現在の設定を途中まで変更しないこと
 
 ### `tests/test_dalle.py`
 
@@ -70,7 +80,7 @@ GPT ImageクライアントとAPIへ渡すパラメーターを検証します�
 
 - `flare`と`sunburst`から、それぞれ正しいOpenAIモデル名を取得できること
 - Azure OpenAIおよびMicrosoft Foundryのエンドポイントを`/openai/v1/`形式へ正規化できること
-- 指定したデプロイ名、プロンプト、画像サイズ、品質、PNG形式が画像生成APIへ正しく渡されること
+- 指定したデプロイ名、プロンプト、画像サイズ、品質、計画量、PNG形式が画像生成APIへ正しく渡されること
 - 最大2枚の入力画像が順序を保って画像編集APIへ渡され、API呼び出し中にファイルが開かれること
 - 編集範囲のマスクが画像編集APIへ渡され、API呼び出し中にファイルが開かれること
 - APIレスポンスからBase64画像と改訂版プロンプトを取得できること
@@ -92,7 +102,7 @@ OpenAIクライアントはモックへ置き換えているため、実際のAP
 - 選択中のモデルに対応するFoundryデプロイ名を使用すること
 - 設定された名前の環境変数からAPIキーとエンドポイントを取得すること
 - APIキー、正規化済みエンドポイント、デプロイ名を`GPTImageClient`へ渡すこと
-- 解像度と品質のクイック設定を保存し、不正な設定値を拒否すること
+- 解像度と品質のクイック設定を保存し、設定画面の計画量を生成時に使用すること
 - クリップボードまたはドラッグ＆ドロップから入力画像を登録・解除できること
 - 画像以外のデータと20MB以上の入力画像を拒否すること
 - 長辺が2048pxを超える画像を縦横比を維持して縮小すること

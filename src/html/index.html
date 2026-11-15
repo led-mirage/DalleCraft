@@ -152,6 +152,7 @@
                 <tr><td>モデル名</td><td><span id="image-info-model-name"></span></td></tr>
                 <tr><td>解像度</td><td><span id="image-info-size"></span></td></tr>
                 <tr><td>画質</td><td><span id="image-info-quality"></span></td></tr>
+                <tr id="image-info-complexity-row"><td>計画量</td><td><span id="image-info-complexity"></span></td></tr>
                 <tr><td>入力画像</td><td><span id="image-info-input-images"></span></td></tr>
                 <tr><td>生成にかかった時間</td><td><span id="image-info-elapsed-time"></span></td></tr>
                 <tr><td>入力トークン</td><td><span id="image-info-input-tokens"></span></td></tr>
@@ -945,7 +946,6 @@ function initQuickSettings(modelConfig) {
         ? modelConfig.size_presets
         : ["auto"];
     const quality = modelConfig && modelConfig.quality ? modelConfig.quality : "auto";
-
     populateImageSizeSelect(sizeSelect, sizePresets, size);
     qualitySelect.value = Array.from(qualitySelect.options).some(option => option.value === quality) ? quality : "auto";
 }
@@ -1243,12 +1243,14 @@ function handleContextMenu(event) {
     menuContent += `<button id="copy-image"><i class="fa-regular fa-copy"></i>　画像をコピー</button><br>`;
     menuContent += `<button id="saveas"><i class="fa-regular fa-floppy-disk"></i>　名前を付けて保存</button><br>`;
     menuContent += `<button id="rename-image"><i class="fa-regular fa-file"></i>　${imageName ? "画像名を変更" : "画像名を設定"}</button><br>`;
+    menuContent += `<hr class="contextmenu-separator">`;
     menuContent += `<button id="edit-from-image"><i class="fa-regular fa-pen-to-square"></i>　この画像を元に編集</button><br>`;
     menuContent += `<button id="masked-edit-from-image"><i class="fa-solid fa-paintbrush"></i>　範囲を指定して編集</button><br>`;
     if (!inModal) {
         menuContent += `<button id="regenerate"><i class="fa-solid fa-repeat"></i>　同じプロンプトで再作成</button><br>`;
-        menuContent += `<button id="image-info"><i class="fa-solid fa-circle-info"></i>　画像情報を表示</button><br>`;
+        menuContent += `<hr class="contextmenu-separator">`;
         menuContent += `<button id="delete-card"><i class="fa-regular fa-trash-can"></i>　画像を削除</button><br>`;
+        menuContent += `<button id="image-info"><i class="fa-solid fa-circle-info"></i>　画像情報を表示</button><br>`;
     }
 
     const menu = document.createElement("div");
@@ -1861,6 +1863,10 @@ async function showImageInfoModal(cardId) {
         imageSize.textContent = info.image_size;
         const imageQuality = document.getElementById("image-info-quality");
         imageQuality.textContent = info.image_quality;
+        const imageComplexity = document.getElementById("image-info-complexity");
+        const imageComplexityRow = document.getElementById("image-info-complexity-row");
+        imageComplexity.textContent = info.image_complexity || "";
+        imageComplexityRow.hidden = !info.image_complexity;
         const inputImages = document.getElementById("image-info-input-images");
         inputImages.textContent = info.input_images.length > 0
             ? info.input_images.map(image => image.original_name).join(", ")

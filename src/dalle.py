@@ -8,11 +8,20 @@ from contextlib import ExitStack
 
 from openai import OpenAI
 
+from model_options import (
+    MODEL_ID_GPT_IMAGE_2_5_FLARE,
+    MODEL_ID_GPT_IMAGE_2_5_SUNBURST,
+    MODEL_ID_GPT_IMAGE_2_6_FLARE,
+    MODEL_ID_GPT_IMAGE_2_6_SUNBURST,
+)
+
 MODEL_VARIANT_FLARE = "flare"
 MODEL_VARIANT_SUNBURST = "sunburst"
 
-MODEL_NAME_FLARE = "gpt-image-2.5-flare"
-MODEL_NAME_SUNBURST = "gpt-image-2.5-sunburst"
+MODEL_NAME_FLARE = MODEL_ID_GPT_IMAGE_2_5_FLARE
+MODEL_NAME_SUNBURST = MODEL_ID_GPT_IMAGE_2_5_SUNBURST
+MODEL_NAME_2_6_FLARE = MODEL_ID_GPT_IMAGE_2_6_FLARE
+MODEL_NAME_2_6_SUNBURST = MODEL_ID_GPT_IMAGE_2_6_SUNBURST
 
 IMAGE_SIZE_SQUARE = "1024x1024"
 IMAGE_SIZE_LANDSCAPE = "1536x1024"
@@ -61,7 +70,11 @@ def extract_token_usage(response) -> dict:
     return token_usage
 
 
-def get_openai_model_name(variant: str) -> str:
+def get_openai_model_name(variant: str, generation: str = "2.5") -> str:
+    if generation == "2.6":
+        if variant == MODEL_VARIANT_SUNBURST:
+            return MODEL_NAME_2_6_SUNBURST
+        return MODEL_NAME_2_6_FLARE
     if variant == MODEL_VARIANT_SUNBURST:
         return MODEL_NAME_SUNBURST
     return MODEL_NAME_FLARE
@@ -90,15 +103,19 @@ class GPTImageClient:
         prompt: str,
         size: str = IMAGE_SIZE_AUTO,
         quality: str = IMAGE_QUALITY_AUTO,
+        complexity: str | None = None,
     ) -> tuple[str, str, dict]:
-        response = self.client.images.generate(
-            model=self.model,
-            prompt=prompt,
-            size=size,
-            quality=quality,
-            output_format="png",
-            n=1,
-        )
+        generate_options = {
+            "model": self.model,
+            "prompt": prompt,
+            "size": size,
+            "quality": quality,
+            "output_format": "png",
+            "n": 1,
+        }
+        if complexity is not None:
+            generate_options["complexity"] = complexity
+        response = self.client.images.generate(**generate_options)
 
         image = response.data[0]
         if not image.b64_json:
@@ -115,6 +132,7 @@ class GPTImageClient:
         image_paths: str | list[str],
         size: str = IMAGE_SIZE_AUTO,
         quality: str = IMAGE_QUALITY_AUTO,
+        complexity: str | None = None,
         mask_path: str | None = None,
     ) -> tuple[str, str, dict]:
         paths = [image_paths] if isinstance(image_paths, str) else list(image_paths)
@@ -145,6 +163,8 @@ class GPTImageClient:
                 "output_format": "png",
                 "n": 1,
             }
+            if complexity is not None:
+                edit_options["complexity"] = complexity
             if mask_path:
                 edit_options["mask"] = stack.enter_context(open(mask_path, "rb"))
 

@@ -8,9 +8,9 @@ Copyright (c) 2025-2026 led-mirage
 
 ## 💎 概要
 
-DalleCraft（ダリ・クラフト）は、GPT Image 2.5を利用した画像生成アプリケーションです。
+DalleCraft（ダリ・クラフト）は、GPT Image 2.5 / 2.6を利用した画像生成アプリケーションです。
 
-OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとGPT Image 2.5 Sunburstを切り替えて利用できます。
+OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 / 2.6のFlareとSunburstを切り替えて利用できます。
 
 手早く開始したい方は、[クイックスタートガイド](QuickStart.md)をご参照ください。
 
@@ -33,8 +33,9 @@ OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとG
 
 ### 主な機能
 
-- テキストプロンプトからGPT Image 2.5による画像を生成
-- GPT Image 2.5 FlareとGPT Image 2.5 Sunburstを切り替えて利用可能
+- テキストプロンプトからGPT Image 2.5 / 2.6による画像を生成
+- GPT Image 2.5 / 2.6のFlareとSunburstを切り替えて利用可能
+- GPT Image 2.6の生成前の計画量（Low、Medium、High）を設定可能
 - OpenAI APIとMicrosoft Foundryに対応
 - `Ctrl+V`またはドラッグ＆ドロップで参照画像を最大2枚添付した画像生成に対応
 - メイン画面から解像度と画質を変更できるクイック設定
@@ -72,7 +73,7 @@ OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとG
 ### 📌 Microsoft Foundryを使用する場合
 
 - Microsoft Foundryリソースを作成し、APIキーとOpenAI v1推論エンドポイントを取得してください。
-- `gpt-image-2.5-flare`または`gpt-image-2.5-sunburst`をデプロイしてください。両方を切り替える場合は、それぞれのデプロイが必要です。
+- 利用するGPT Image 2.5 / 2.6モデルをデプロイしてください。複数のモデルを切り替える場合は、それぞれのデプロイが必要です。
 - デプロイ可能なリージョンは[Microsoftの公式サイト](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure-region-availability)でご確認ください。
 
 <div class="page"/>
@@ -113,11 +114,11 @@ OpenAI API、Microsoft Foundryに対応しています。GPT Image 2.5 FlareとG
 - OSの環境変数にAZURE_OPENAI_API_KEYを追加し、APIキーを設定してください。
 - OSの環境変数にAZURE_OPENAI_ENDPOINTを追加し、Foundryのデプロイ画面に表示されるOpenAI v1推論エンドポイントを設定してください。
 - 使用する環境変数名はアプリの設定画面から変更できます。
-- アプリの設定画面でFlareとSunburstのデプロイ名を設定してください。
+- アプリの設定画面で、利用するモデルに対応するデプロイ名を設定してください。未使用モデルのデプロイ名は空欄にできます。
 
 ### 📌 画像サイズのプリセット
 
-メイン画面と設定画面に表示する画像サイズは、`config.json`の`model.size_presets`で変更できます。`auto`または`WIDTHxHEIGHT`形式で指定してください。重複やGPT Image 2.5の制約に合わない値は読み込み時に除外されます。
+メイン画面と設定画面に表示する画像サイズは、`config.json`の`model.size_presets`で変更できます。`auto`または`WIDTHxHEIGHT`形式で指定してください。重複やGPT Imageの制約に合わない値は読み込み時に除外されます。
 
 幅と高さは16の倍数、アスペクト比は1:3から3:1、各辺は3840px以下、総画素数は655,360から8,294,400の範囲で指定する必要があります。設定を変更した場合はDalleCraftを再起動してください。
 
@@ -136,7 +137,7 @@ DalleCraft.exeをダブルクリックして起動します。
 python src/main.py
 ```
 
-## 💎 GPT Image 2.5 APIの利用料金
+## 💎 GPT Image APIの利用料金
 
 GPT Image API利用料金は[OpenAIの公式サイト](https://developers.openai.com/api/docs/pricing)でご確認ください。Microsoft Foundryを利用する場合は、[Microsoftの公式サイト](https://azure.microsoft.com/en-us/pricing/details/microsoft-foundry/)でご確認ください。
 
@@ -174,9 +175,9 @@ Microsoft Foundryには、Global Standardの公開料金を基にした概算単
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/d4c552f85a20b4e9c543dd6a2836a25ee2dfc0b8c0caf89d477a5ddd2f67b2b7/detection)で確認できます（2026/11/12 v2.9.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/21a274731a2029500a57e260b704b6ffb53b8b1edf8433a5ace527f2beb732fa/detection)で確認できます（2026/11/15 v2.10.0）
 
-77個中2個のアンチウィルスエンジンで検出
+71個中2個のアンチウィルスエンジンで検出
 
 <div class="page"/>
 
@@ -221,6 +222,17 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 <div class="page"/>
 
 ## 💎 バージョン履歴
+
+### 2.10.0 (2026/11/15)
+
+- GPT Image 2.6 Flare、GPT Image 2.6 Sunburstに対応
+- GPT Image 2.6の生成前の計画量設定に対応
+- 生成時に使用した計画量を画像情報で確認できるように変更
+- GPT Image 2.6の概算料金表示に対応
+- GPT Image 2.5を互換モデルとして引き続き選択可能
+- Microsoft Foundryのデプロイ名をモデルごとに設定できるように変更
+- 既存のバージョン3.0設定をバージョン4.0へ自動移行
+- 生成画像の右クリックメニューを用途別に整理し、区切り線を追加
 
 ### 2.9.0 (2026/11/10)
 

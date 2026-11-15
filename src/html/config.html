@@ -51,6 +51,16 @@
         .image-size-option label {
             margin-left: 0.2rem;
         }
+
+        .model-generation + .model-generation {
+            margin-top: 0.75rem;
+        }
+
+        .model-generation-title {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 0.35rem;
+        }
     </style>
 </head>
 <body>
@@ -96,23 +106,41 @@
                     <input type="text" id="foundryEndpoint" placeholder="エンドポイントを格納する環境変数名を入力">
                 </div>
                 <div class="form-group">
-                    <label for="foundryFlareDeployment">Flareのデプロイ名:</label>
-                    <input type="text" id="foundryFlareDeployment" placeholder="gpt-image-2.5-flare">
+                    <label for="foundry26FlareDeployment">GPT Image 2.6 Flareのデプロイ名:</label>
+                    <input type="text" id="foundry26FlareDeployment" placeholder="未使用の場合は空欄">
                 </div>
                 <div class="form-group">
-                    <label for="foundrySunburstDeployment">Sunburstのデプロイ名:</label>
-                    <input type="text" id="foundrySunburstDeployment" placeholder="gpt-image-2.5-sunburst">
+                    <label for="foundry26SunburstDeployment">GPT Image 2.6 Sunburstのデプロイ名:</label>
+                    <input type="text" id="foundry26SunburstDeployment" placeholder="未使用の場合は空欄">
                 </div>
-                <p class="description">エンドポイントにはFoundryのデプロイ画面に表示されるOpenAI v1推論エンドポイントを使用してください。</p>
+                <div class="form-group">
+                    <label for="foundry25FlareDeployment">GPT Image 2.5 Flareのデプロイ名:</label>
+                    <input type="text" id="foundry25FlareDeployment" placeholder="未使用の場合は空欄">
+                </div>
+                <div class="form-group">
+                    <label for="foundry25SunburstDeployment">GPT Image 2.5 Sunburstのデプロイ名:</label>
+                    <input type="text" id="foundry25SunburstDeployment" placeholder="未使用の場合は空欄">
+                </div>
+                <p class="description">使用するモデルのデプロイ名だけ入力してください。エンドポイントにはFoundryのデプロイ画面に表示されるOpenAI v1推論エンドポイントを使用してください。</p>
             </div>
         </div>
         <div class="category">
             <h3>モデル</h3>
             <div class="setting-group">
-                <input type="radio" id="optionFlare" name="modelVariant" value="flare" checked>
-                <label for="optionFlare">GPT Image 2.5 Flare（高速）</label>
-                <input type="radio" id="optionSunburst" name="modelVariant" value="sunburst">
-                <label for="optionSunburst">GPT Image 2.5 Sunburst（高精度）</label>
+                <div class="model-generation">
+                    <span class="model-generation-title">GPT Image 2.6（推奨）</span>
+                    <input type="radio" id="option26Flare" name="modelId" value="gpt-image-2.6-flare" checked>
+                    <label for="option26Flare">Flare（高速）</label>
+                    <input type="radio" id="option26Sunburst" name="modelId" value="gpt-image-2.6-sunburst">
+                    <label for="option26Sunburst">Sunburst（高精度）</label>
+                </div>
+                <div class="model-generation">
+                    <span class="model-generation-title">GPT Image 2.5（互換）</span>
+                    <input type="radio" id="option25Flare" name="modelId" value="gpt-image-2.5-flare">
+                    <label for="option25Flare">Flare（高速）</label>
+                    <input type="radio" id="option25Sunburst" name="modelId" value="gpt-image-2.5-sunburst">
+                    <label for="option25Sunburst">Sunburst（高精度）</label>
+                </div>
             </div>
         </div>
         <div class="category">
@@ -136,6 +164,18 @@
                 <label for="optionQualityMax">最大</label>
             </div>
         </div>
+        <div class="category" id="complexity-setting">
+            <h3>生成前の計画量</h3>
+            <div class="setting-group">
+                <input type="radio" id="optionComplexityLow" name="imageComplexity" value="low">
+                <label for="optionComplexityLow">低</label>
+                <input type="radio" id="optionComplexityMedium" name="imageComplexity" value="medium">
+                <label for="optionComplexityMedium">中</label>
+                <input type="radio" id="optionComplexityHigh" name="imageComplexity" value="high" checked>
+                <label for="optionComplexityHigh">高</label>
+                <p class="description">画像を描画する前に、構図・文字・要素間の関係を検討する処理量です。画質とは別の設定です。</p>
+            </div>
+        </div>
     </div>
     <div style="height: 1em;"></div>
     <footer><span id="copyright">Copyright</span></footer>
@@ -151,11 +191,25 @@ window.addEventListener("DOMContentLoaded", function() {
             }
         });
     });
+
+    const modelRadioButtons = document.querySelectorAll('input[name="modelId"]');
+    modelRadioButtons.forEach(radio => {
+        radio.addEventListener("change", function(event) {
+            if (event.target.checked) {
+                showComplexitySettings(event.target.value);
+            }
+        });
+    });
 });
 
 function showApiSettings(apiType) {
     document.getElementById("openai-setting").style.display = apiType === "openai" ? "block" : "none";
     document.getElementById("foundry-setting").style.display = apiType === "foundry" ? "block" : "none";
+}
+
+function showComplexitySettings(modelId) {
+    document.getElementById("complexity-setting").style.display =
+        modelId.startsWith("gpt-image-2.6-") ? "block" : "none";
 }
 
 function setRadioValue(name, value, fallback) {
@@ -185,16 +239,21 @@ async function initComponents() {
     document.getElementById("openaiApiKey").value = config.openai.api_key_envvar;
     document.getElementById("foundryApiKey").value = config.foundry.api_key_envvar;
     document.getElementById("foundryEndpoint").value = config.foundry.endpoint_envvar;
-    document.getElementById("foundryFlareDeployment").value = config.foundry.flare_deployment;
-    document.getElementById("foundrySunburstDeployment").value = config.foundry.sunburst_deployment;
+    const deployments = config.foundry.deployments || {};
+    document.getElementById("foundry26FlareDeployment").value = deployments["gpt-image-2.6-flare"] || "";
+    document.getElementById("foundry26SunburstDeployment").value = deployments["gpt-image-2.6-sunburst"] || "";
+    document.getElementById("foundry25FlareDeployment").value = deployments["gpt-image-2.5-flare"] || "";
+    document.getElementById("foundry25SunburstDeployment").value = deployments["gpt-image-2.5-sunburst"] || "";
 
-    setRadioValue("modelVariant", config.model.variant, "flare");
+    setRadioValue("modelId", config.model.id, "gpt-image-2.6-flare");
+    showComplexitySettings(config.model.id);
     populateImageSizeRadios(
         document.getElementById("image-size-options"),
         config.model.size_presets,
         config.model.size
     );
     setRadioValue("imageQuality", config.model.quality, "auto");
+    setRadioValue("imageComplexity", config.model.complexity, "high");
 }
 
 // キャンセルボタン押下イベント
@@ -205,6 +264,7 @@ function cancel() {
 // OKボタン押下イベント
 async function submit() {
     const apiType = document.querySelector('input[name="apiType"]:checked').value;
+    const modelId = document.querySelector('input[name="modelId"]:checked').value;
     const config = {
         apiType: apiType,
         openai: {
@@ -213,16 +273,29 @@ async function submit() {
         foundry: {
             api_key_envvar: document.getElementById("foundryApiKey").value.trim(),
             endpoint_envvar: document.getElementById("foundryEndpoint").value.trim(),
-            flare_deployment: document.getElementById("foundryFlareDeployment").value.trim(),
-            sunburst_deployment: document.getElementById("foundrySunburstDeployment").value.trim()
+            deployments: {
+                "gpt-image-2.6-flare": document.getElementById("foundry26FlareDeployment").value.trim(),
+                "gpt-image-2.6-sunburst": document.getElementById("foundry26SunburstDeployment").value.trim(),
+                "gpt-image-2.5-flare": document.getElementById("foundry25FlareDeployment").value.trim(),
+                "gpt-image-2.5-sunburst": document.getElementById("foundry25SunburstDeployment").value.trim()
+            }
         },
         model: {
-            variant: document.querySelector('input[name="modelVariant"]:checked').value,
+            id: modelId,
             size: document.querySelector('input[name="imageSize"]:checked').value,
-            quality: document.querySelector('input[name="imageQuality"]:checked').value
+            quality: document.querySelector('input[name="imageQuality"]:checked').value,
+            complexity: document.querySelector('input[name="imageComplexity"]:checked').value
         }
     };
-    await pywebview.api.api_submit_config(config);
+    if (apiType === "foundry" && !config.foundry.deployments[modelId]) {
+        alert(`${modelId}のFoundryデプロイ名を入力してください。`);
+        return;
+    }
+    try {
+        await pywebview.api.api_submit_config(config);
+    } catch (error) {
+        alert(error.message || String(error));
+    }
 }
 </script>
 </body>

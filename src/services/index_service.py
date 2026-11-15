@@ -26,6 +26,7 @@ from image_clipboard import copy_image_to_clipboard
 from session import LOG_DIR, SessionManager, SessionEntry, Session
 from generation_logger import ImageGenerationLogger
 from image_options import normalize_image_size
+from model_options import SUPPORTED_COMPLEXITIES, supports_complexity
 from pricing import PricingConfig
 
 INPUT_IMAGE_DIR = os.path.join(LOG_DIR, "input-images")
@@ -87,6 +88,7 @@ class IndexService:
         prompt: str,
         size: str | None = None,
         quality: str | None = None,
+        complexity: str | None = None,
         input_image_paths: list[str] | None = None,
         mask_path: str | None = None,
     ) -> tuple[str, str, float, dict]:
@@ -96,12 +98,19 @@ class IndexService:
         configured_size, configured_quality = self.config.get_model_param()
         size = configured_size if size is None else size
         quality = configured_quality if quality is None else quality
+        complexity = self.config.get_complexity() if complexity is None else complexity
+        api_complexity = (
+            complexity
+            if supports_complexity(self.config.model["id"])
+            else None
+        )
         if input_image_paths:
             image_b64, revised_prompt, token_usage = image_client.edit_image(
                 prompt,
                 input_image_paths,
                 size=size,
                 quality=quality,
+                complexity=api_complexity,
                 mask_path=mask_path,
             )
         else:
@@ -109,13 +118,15 @@ class IndexService:
                 prompt,
                 size=size,
                 quality=quality,
+                complexity=api_complexity,
             )
 
         elapsed_time = time.time() - start_time
         return image_b64, revised_prompt, elapsed_time, token_usage
 
-    def resolve_generation_options(self, options: dict | None = None) -> tuple[str, str]:
+    def resolve_generation_options(self, options: dict | None = None) -> tuple[str, str, str]:
         configured_size, configured_quality = self.config.get_model_param()
+        configured_complexity = self.config.get_complexity()
         if options is None:
             options = {}
         elif not isinstance(options, dict):
@@ -123,12 +134,15 @@ class IndexService:
 
         size = options.get("size", configured_size)
         quality = options.get("quality", configured_quality)
+        complexity = configured_complexity
         normalized_size = normalize_image_size(size)
         if normalized_size is None:
             raise ValueError(f"未対応の解像度です: {size}")
         if quality not in self.VALID_IMAGE_QUALITIES:
             raise ValueError(f"未対応の品質です: {quality}")
-        return normalized_size, quality
+        if complexity not in SUPPORTED_COMPLEXITIES:
+            raise ValueError(f"未対応の計画量です: {complexity}")
+        return normalized_size, quality, complexity
 
     def update_generation_options(self, size: str, quality: str) -> bool:
         if self.config.get_model_param() == (size, quality):
@@ -558,7 +572,7 @@ class IndexService:
 
     def api_update_generation_options(self, options: dict) -> dict:
         try:
-            image_size, image_quality = self.resolve_generation_options(options)
+            image_size, image_quality, _ = self.resolve_generation_options(options)
             self.update_generation_options(image_size, image_quality)
             return {
                 "success": True,
@@ -645,11 +659,13 @@ class IndexService:
 
     def api_gen_image(self, prompt: str, options: dict | None = None) -> dict:
         api_type = self.config.api_type
-        model_name = self.config.get_model_name()
+        model_name = self.config.model["id"]
         image_size, image_quality = self.config.get_model_param()
+        image_complexity = self.config.get_complexity()
         pending_input_images = []
         try:
-            image_size, image_quality = self.resolve_generation_options(options)
+            model_name = self.config.get_model_name()
+            image_size, image_quality, image_complexity = self.resolve_generation_options(options)
             pending_input_images = self.resolve_input_images(options)
             if options is not None:
                 self.update_generation_options(image_size, image_quality)
@@ -657,6 +673,7 @@ class IndexService:
                 prompt,
                 size=image_size,
                 quality=image_quality,
+                complexity=image_complexity,
                 input_image_paths=[
                     pending_input_image["path"]
                     for pending_input_image in pending_input_images
@@ -693,6 +710,11 @@ class IndexService:
                 input_images=input_images,
                 token_usage=token_usage,
                 cost_estimate=cost_estimate,
+                image_complexity=(
+                    image_complexity
+                    if supports_complexity(self.config.model["id"])
+                    else ""
+                ),
             )
             session = self.session_manager.get_current_session()
             session.add_entry(entry)
@@ -739,6 +761,11 @@ class IndexService:
                 "",
                 str(e),
                 input_images=input_images,
+                image_complexity=(
+                    image_complexity
+                    if supports_complexity(self.config.model["id"])
+                    else ""
+                ),
             )
             session = self.session_manager.get_current_session()
             session.add_entry(entry)

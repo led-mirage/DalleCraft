@@ -1,5 +1,5 @@
 {
-    "version": "3.0",
+    "version": "4.0",
     "api_type": "openai",
     "openai": {
         "api_key_envvar": "OPENAI_API_KEY"
@@ -7,13 +7,18 @@
     "foundry": {
         "api_key_envvar": "AZURE_OPENAI_API_KEY",
         "endpoint_envvar": "AZURE_OPENAI_ENDPOINT",
-        "flare_deployment": "gpt-image-2.5-flare",
-        "sunburst_deployment": "gpt-image-2.5-sunburst"
+        "deployments": {
+            "gpt-image-2.6-flare": "gpt-image-2.6-flare",
+            "gpt-image-2.6-sunburst": "gpt-image-2.6-sunburst",
+            "gpt-image-2.5-flare": "gpt-image-2.5-flare",
+            "gpt-image-2.5-sunburst": "gpt-image-2.5-sunburst"
+        }
     },
     "model": {
-        "variant": "flare",
+        "id": "gpt-image-2.6-sunburst",
         "size": "auto",
         "quality": "auto",
+        "complexity": "high",
         "size_presets": [
             "auto",
             "1024x1024",
@@ -31,6 +36,6 @@
         "window_width": 1024,
         "window_height": 800,
         "welcome_title": "Welcome",
-        "welcome_message": "DalleCraft is a tool for generating images using GPT Image 2.5."
+        "welcome_message": "DalleCraft is a tool for generating images using GPT Image."
     }
 }
