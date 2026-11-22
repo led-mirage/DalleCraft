@@ -102,6 +102,16 @@ class IndexHtmlTest(unittest.TestCase):
         self.assertIn('openai: "OpenAI"', source)
         self.assertIn('foundry: "Microsoft Foundry"', source)
 
+    def test_preserves_prompt_while_config_view_is_open(self):
+        source = (
+            Path(__file__).parents[1] / "src" / "html" / "index.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("pywebview.api.api_open_config(prompt)", source)
+        self.assertIn("await pywebview.api.api_take_prompt_draft()", source)
+        self.assertIn("prompt.value = promptDraft", source)
+        self.assertIn("prompt.focus()", source)
+
     def test_supports_paste_and_drop_input_images(self):
         source = (
             Path(__file__).parents[1] / "src" / "html" / "index.html"

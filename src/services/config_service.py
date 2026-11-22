@@ -16,13 +16,20 @@ class ConfigService:
     def __init__(self, window: AppWindow, config: Config):
         self.window = window
         self.config = config
+        self._prompt_draft: str | None = None
 
     # --------------------------------------------------------------------------
     # JavaScriptから呼び出されるAPI群
     # --------------------------------------------------------------------------
 
-    def api_open_config(self):
+    def api_open_config(self, prompt: str):
+        self._prompt_draft = prompt
         return self.window.open_config_view()
+
+    def api_take_prompt_draft(self) -> str | None:
+        prompt = self._prompt_draft
+        self._prompt_draft = None
+        return prompt
 
     def api_cancel_config(self):
         self.window.open_index_view()

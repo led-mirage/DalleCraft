@@ -175,7 +175,7 @@ Microsoft Foundryには、Global Standardの公開料金を基にした概算単
 
 誤認問題が解決できるのが一番いいのですが、いい方法が見つかっていないので申し訳ありませんがご了承ください。
 
-VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/21a274731a2029500a57e260b704b6ffb53b8b1edf8433a5ace527f2beb732fa/detection)で確認できます（2026/11/15 v2.10.0）
+VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/file/82925f8cc5a99203fa79d99e71babdfe1d0b2b15575dc51c3ae184cb38166b26/detection)で確認できます（2026/11/22 v2.10.1）
 
 71個中2個のアンチウィルスエンジンで検出
 
@@ -222,6 +222,10 @@ VirusTotalでのチェック結果は[ここ](https://www.virustotal.com/gui/fil
 <div class="page"/>
 
 ## 💎 バージョン履歴
+
+### 2.10.1 (2026/11/22)
+
+- 設定画面から戻った際に、入力途中のプロンプトが失われる問題を修正
 
 ### 2.10.0 (2026/11/15)
 
