@@ -243,6 +243,13 @@ window.addEventListener("pywebviewready", async function() {
     await initComponents();
     addWelcome();
     pywebview.api.api_refresh_index_view();
+
+    const promptDraft = await pywebview.api.api_take_prompt_draft();
+    if (promptDraft !== null) {
+        const prompt = document.getElementById("prompt");
+        prompt.value = promptDraft;
+        prompt.focus();
+    }
 });
 
 // remをpxに変換
@@ -1807,7 +1814,8 @@ async function newSession() {
 
 // 設定画面を開く
 function config() {
-    pywebview.api.api_open_config();
+    const prompt = document.getElementById("prompt").value;
+    pywebview.api.api_open_config(prompt);
 }
 
 // 下端までスクロールする

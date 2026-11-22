@@ -32,6 +32,25 @@ class ConfigServiceTest(unittest.TestCase):
             },
         }
 
+    def test_restores_prompt_draft_only_once(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        window = Mock()
+        service = ConfigService(window, config)
+
+        service.api_open_config("unfinished prompt")
+
+        window.open_config_view.assert_called_once_with()
+        self.assertEqual("unfinished prompt", service.api_take_prompt_draft())
+        self.assertIsNone(service.api_take_prompt_draft())
+
+    def test_preserves_empty_prompt_draft(self):
+        config = Config(Path(__file__).resolve().parents[1] / "config.json")
+        service = ConfigService(Mock(), config)
+
+        service.api_open_config("")
+
+        self.assertEqual("", service.api_take_prompt_draft())
+
     @patch.object(Config, "save")
     def test_saves_model_and_foundry_deployment_map(self, save):
         config = Config(Path(__file__).resolve().parents[1] / "config.json")

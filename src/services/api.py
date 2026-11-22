@@ -111,8 +111,11 @@ class Api:
     # ConfigService
     # --------------------------------------------------------------------------
 
-    def api_open_config(self):
-        return self.config_service.api_open_config()
+    def api_open_config(self, prompt: str):
+        return self.config_service.api_open_config(prompt)
+
+    def api_take_prompt_draft(self) -> str | None:
+        return self.config_service.api_take_prompt_draft()
 
     def api_cancel_config(self):
         return self.config_service.api_cancel_config()
